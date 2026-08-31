@@ -58,7 +58,8 @@ Trạng thái dùng trong tài liệu:
   symmetric per-output-channel scale, activation dùng dynamic per-token scale,
   dequantize accumulator trước exact GELU và giữ phần còn lại theo V11.
 
-Taxonomy này giữ mỗi bước tối ưu có một ablation độc lập; v3.1 là candidate nhanh nhất, còn v1/v2/v3 giải thích phần speedup đến từ đâu.
+Taxonomy này giữ mỗi bước tối ưu có một ablation độc lập; v1/v2/v3/v3.1 giải
+thích nguồn speedup lịch sử, còn active final artifact là `v16_1_clean.py`.
 
 ## 2. S0 — Baseline PyTorch
 
@@ -2347,8 +2348,8 @@ promote V16.1 sau đó.
 
 ## 23. S8.10 — Promote V16.1 làm source-clean main
 
-**Trạng thái:** Promoted theo D-038; local code/orchestration/correctness gates
-PASS, full GPU #14 rerun còn pending.
+**Trạng thái:** Historical promotion checkpoint theo D-038; full clean-artifact
+GPU gate về sau đã được đóng trong S8.13/D-043.
 
 **Mục tiêu và giả thuyết:** Dùng V16.1 làm stable submission artifact để #1–#13
 không chứa exact official-#13 tuple hoặc V15/direct-QKV dependency, đồng thời giữ
@@ -2385,11 +2386,10 @@ không chứa V15/V16. CPU official-shape #2 smoke qua `main.py` PASS hai trial,
 max abs `0.00084424`. CPU timing `0.450–0.506x` là non-target orchestration
 diagnostic và bị loại khỏi mọi performance claim.
 
-**Gate còn lại trước final submission:** chạy full V16.1 #14 strict gate đủ
-32 batch, optimized-only V16.1/V16/V14.1 alternating comparison và full
-#1–#13 main matrix trên GPU mục tiêu idle. Cho tới khi có các run này, report
-chỉ claim promotion/source topology và predecessor/canary evidence, không claim
-một latency hay full-#14 result mới cho V16.1.
+**Gate tại thời điểm promotion:** cần full V16.1 #14 strict đủ 32 batch và full
+#1–#13 main matrix trên GPU mục tiêu idle. S8.13/D-043 đã đóng hai gate bắt buộc
+này; alternating V16.1/V16/V14.1 chỉ còn là optional predecessor attribution,
+không cần để claim active-main latency.
 
 **Hướng tối ưu kế tiếp theo evidence:** (1) candidate direct-QKV mới trên V16.1
 với workload predicate large `B*S`, `D=FFN=128` để khai thác measured #6 win
@@ -2509,7 +2509,8 @@ sample nhẹ; owner chạy full GPU benchmark.
 
 ## 26. S8.13 — Standalone V16.1 cleanup và archive
 
-**Trạng thái:** Implemented; local structural/equivalence gates PASS, GPU rerun pending.
+**Trạng thái:** Validated and benchmarked; local equivalence và fresh GPU
+official matrix đều PASS.
 
 **Giả thuyết/phạm vi:** Flatten đúng promoted V16.1 vào một file standalone để
 artifact submission không còn phụ thuộc chuỗi V14.1→V11→V8→V4.3→mixed→baseline.
@@ -2529,9 +2530,10 @@ Forced large-sequence cutoff với `torch.compile(backend="eager")` cũng khớp
 bit-for-bit; compiled executor được reuse rồi invalidate đúng sau
 `load_state_dict()` và `.to()`.
 
-**Gate còn lại:** chạy active syntax/list-shapes/main smoke sau archive, rồi
-CUDA official #1–#13 và full memory-bounded #14 trên GPU mục tiêu. Không dùng
-local CPU equivalence để gán lại latency/speedup predecessor cho file clean.
+**GPU gate cần đóng sau cleanup:** chạy active syntax/list-shapes/main smoke,
+CUDA official #1–#13 và full memory-bounded #14 trên GPU mục tiêu. Trước khi có
+run ngày 2026-08-31, local CPU equivalence không được dùng để gán lại
+latency/speedup predecessor cho file clean.
 
 **Post-archive active smoke:** Active `py_compile`, hai lệnh `--list-shapes` và
 `--help` của ba tool #14 đều PASS. `main.py` trên official shape #2 CPU PASS
@@ -2539,3 +2541,242 @@ hai trial (`0/32,768`, `max_abs=0.000937343`); matrix alias `v16.1` PASS một
 trial (`0/16,384`, `max_abs=0.00084424`). CPU timing bị loại. Copy duy nhất
 `v16_1_clean.py` sang temp directory và import khi repo path bị loại khỏi
 `sys.path` cũng PASS, xác nhận standalone import không dựa vào file project.
+
+**Fresh final GPU validation 2026-08-31:** Commit
+`4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6` được chạy trên Vast.ai RTX 5090
+`sm120`, driver `580.159.03`, Ubuntu 24.04.4, Python `3.12.14`, PyTorch
+`2.11.0+cu128`, CUDA wheel `12.8`, cuDNN `9.19.0`, Triton `3.6.0`. Public dtype
+là FP32, TF32 bật cho cả baseline/optimized, seed `1234`; baseline eager còn
+optimized dùng `max-autotune`.
+
+Command #1–#13:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python matrix_runner.py \
+  --impl main --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
+  --device cuda:0 --dtype float32 --accuracy-trials 5 \
+  --warmup 20 --repeats 100 --benchmark-rounds 3 \
+  --compile-user --compile-mode max-autotune --timeout 1800
+```
+
+Mọi row strict PASS, tổng failed `0`, worst max abs `0.00179085`; geomean
+speedup `7.904x`.
+
+| ID | Max abs | Baseline ms | Optimized ms | Speedup |
+|---:|---:|---:|---:|---:|
+| 1 | 0.00127272 | 0.8146 | 0.1389 | 5.863x |
+| 2 | 0.00114284 | 0.7136 | 0.0566 | 12.606x |
+| 3 | 0.00123456 | 0.7764 | 0.0607 | 12.789x |
+| 4 | 0.00134718 | 0.7214 | 0.0771 | 9.354x |
+| 5 | 0.00147235 | 1.3092 | 0.2208 | 5.930x |
+| 6 | 0.00160612 | 179.0890 | 26.5491 | 6.746x |
+| 7 | 0.00179085 | 0.7208 | 0.0732 | 9.853x |
+| 8 | 0.00134873 | 7.1229 | 2.8616 | 2.489x |
+| 9 | 0.00126606 | 0.6540 | 0.1574 | 4.155x |
+| 10 | 0.00134726 | 0.7254 | 0.1451 | 5.001x |
+| 11 | 0.00140083 | 1.8169 | 0.1996 | 9.105x |
+| 12 | 0.00134718 | 0.7213 | 0.0854 | 8.442x |
+| 13 | 0.00147235 | 42.2520 | 1.2455 | 33.925x |
+
+Full #14 dùng `shape14_accuracy.py --impl main --batch-limit 32
+--query-chunk 256 --compare-token-chunk 2048 --seed 1234 --compile-mode
+max-autotune`: strict PASS `0/3,276,800,000`, max abs `0.000944197`, mean abs
+`6.56367e-05`, elapsed `348.534 s`, peak accuracy allocation `19.967 GiB`.
+
+Optimized-only #14 với warmup/repeats `1/5` cho samples
+`7135.0098/7171.5771/7213.5254/7239.6484/7260.9688 ms`; median
+`7213.5254 ms`, p90 `7252.4406 ms`, throughput `443,611.11 token/s`, peak
+`24.487 GiB`. Baseline/speedup giữ N/A vì explicit score khoảng `18.6 TiB`.
+
+Checked-in evidence: `results/final/`.
+
+## 27. S8.14 — V19 CUDA FP16 accumulation với checkpoint FP32 theo K
+
+**Trạng thái:** Implemented và local structural/accuracy smoke PASS; CUDA
+compile/execution, full accuracy và performance pending vì GPU mục tiêu đang có
+job. Không thay `main.py` và chưa có performance claim.
+
+**Giả thuyết:** FFN-in/GELU của V16.1 hiện dùng custom Triton GEMM với
+accumulator FP32. Full FP16 accumulation từng fail accuracy ở V5.1 và không cho
+speedup ổn định, nhưng lỗi tích lũy có thể được giới hạn nếu mỗi tensor-core
+tile chỉ accumulate FP16 trong một đoạn K ngắn rồi promote partial sum vào một
+accumulator FP32. Candidate đầu tiên chốt sau mỗi `K=32`: hai MMA K=16 dùng
+accumulator FP16, partial tile được store/promote, cộng thủ công vào FP32, rồi
+reset accumulator FP16 cho đoạn tiếp theo. Bias và exact erf-GELU vẫn chạy từ
+tổng FP32; output GELU vẫn round FP16 cho FFN-out như V16.1.
+
+**Phạm vi:** Tạo version riêng `v19_CUDAFP16Checkpoint.py` kế thừa standalone
+V16.1 và chỉ thay fused `FFN-in -> exact GELU`. CUDA extension dùng WMMA 16x16x16
+thật, không bật flag process-global `allow_fp16_accumulation`. Default là
+checkpoint `K=32`; các control `K=16/64/128` và `fp32` dùng cùng launch/layout/
+epilogue để owner sweep trên GPU sau. QKV, SDPA, attention out, FFN-out,
+LayerNorm/residual, cache/state dict, large-sequence executor và mọi fallback
+khác giữ nguyên V16.1. `main.py` tiếp tục trỏ V16.1 cho tới khi V19 pass strict
+matrix và paired benchmark.
+
+**Gate:** (1) syntax/import và strict state-dict equality; (2) local CPU
+portable checkpoint simulation, causal/non-causal, mask/no-mask, training và
+non-FP32 fallback; (3) trên target, bắt buộc build/chạy CUDA extension và so
+kernel `K=16/32/64/128/fp32` trên official canaries #7/#10/#2 trước; (4) chỉ
+variant strict PASS mới chạy #1–#13 rồi #14 B=1 -> B=2 -> B=32; (5) benchmark
+paired V16.1/V19 bằng cùng seed/TF32/max-autotune và cả hai orders. Local CPU
+timing và mọi CUDA timing khi GPU đang có job đều bị loại khỏi performance
+claim.
+
+**Implementation:** CUDA kernel dùng block `64x32`, tám warps và WMMA
+`16x16x16`. Activation tile và transposed-weight view được stage vào shared
+memory; mỗi warp giữ một output tile. Ở mode mặc định `K=32`, hai MMA cập nhật
+accumulator FP16, partial tile được store vào shared memory, mỗi lane promote
+tám phần tử sang register FP32 rồi accumulator FP16 được reset. Các mode
+`16/64/128` thay đúng số MMA giữa hai checkpoint; `fp32` là CUDA control dùng
+cùng block/layout/epilogue nhưng WMMA accumulator FP32. Extension được build
+trước `torch.compile` khi model chuyển sang CUDA. Build failure mặc định là
+hard error để không silent benchmark V16.1; chỉ env
+`TECHJAM_V19_ALLOW_CUDA_FALLBACK=1` cho phép diagnostic fallback có warning.
+
+**Local result:** macOS/CPU, PyTorch `2.12.1`; không có CUDA nên phần này chỉ
+validate Python graph, state/fallback và portable checkpoint simulation.
+`py_compile`, import, custom-op `torch.library.opcheck` (schema/autograd/fake/
+AOT dynamic) và `torch.compile(backend="eager")` đều PASS. State dict khớp
+V16.1 strict; unsupported-M, training và BF16 fallbacks khớp V16.1 bitwise.
+Causal/non-causal x mask/no-mask diagnostic `B2/S16/D32/H4/FFN32/L2` đều PASS
+strict, worst max abs `0.000994802`. Official-shape-#2 CPU một-trial smoke PASS
+cho cả năm modes:
+
+| Mode | Max abs | Failed |
+|---|---:|---:|
+| K=16 | `0.000965476` | `0/16,384` |
+| K=32 | `0.00108075` | `0/16,384` |
+| K=64 | `0.00101018` | `0/16,384` |
+| K=128 | `0.00104527` | `0/16,384` |
+| FP32 control | `0.00084424` | `0/16,384` |
+
+CPU latency bị loại. Portable path chỉ round partial GEMM output theo group;
+nó không mô phỏng chính xác vi kiến trúc WMMA FP16 accumulator, nên các PASS
+trên không thay CUDA accuracy gate.
+
+## 28. S8.15 — V19.1 parallel batch partitions
+
+**Trạng thái:** Implemented; local structural/parent-equivalence/accuracy smoke
+PASS. CUDA memory/accuracy/performance pending vì GPU mục tiêu đang có job.
+
+**Evidence và giả thuyết:** V16.1 shape #14 giữ loop batch ngoài eager và chạy
+32 sample B=1 tuần tự. V17 từng đổi executor thành B=2 nhưng chỉ giảm khoảng
+`0.515%`; cách đó tăng batch bên trong cùng graph, không thử enqueue các sample
+độc lập lên nhiều CUDA streams. Vì batch samples không tương tác, chia B=32
+thành 2/4/8/... partition liên tục và chạy mỗi partition trên một stream có thể
+overlap attention/GEMM hoặc che launch gaps. Đổi lại, live intermediates tăng
+gần theo số stream và có thể OOM; đây là memory/performance experiment, không
+được giả định nhanh hơn từ concurrency lý thuyết.
+
+**V19.1.0:** Kế thừa trực tiếp standalone V16.1. Chỉ thay outer large-sequence
+batch scheduler bằng multi-stream partitions; arithmetic/kernel bên trong mỗi
+sample giữ nguyên V16.1.
+
+**V19.1.1:** Kế thừa V19 và dùng đúng scheduler V19.1.0. Vì vậy nó kết hợp hai
+thay đổi đã version hóa: CUDA checkpointed-FP16 FFN-in/GELU của V19 và batch
+partitions song song. So V19.1.1 với V19 để đo riêng scheduler; so V19.1.0 với
+V16.1 làm control không có kernel V19.
+
+**Thiết kế:** `TECHJAM_V19_PARALLEL_PARTS=1|2|4|8|16|32`, mặc định 2. Batch
+được chia thành các range liên tục cân bằng; mỗi stream xử lý tuần tự các sample
+B=1 trong range của nó, còn các stream enqueue song song. Parts=1 gọi nguyên
+parent path. Multi-stream bắt buộc inner executor dùng
+`max-autotune-no-cudagraphs`: một CUDA Graph/static buffer dùng chung giữa các
+stream có nguy cơ race hoặc replay sai. Streams là runtime cache không thuộc
+`state_dict`, được rebuild sau load/move/train-eval invalidation. CPU/non-CUDA,
+training, non-FP32, short sequence và B=1 giữ parent behavior.
+
+**Gate:** (1) planner cover mỗi batch index đúng một lần cho B lẻ/chẵn và mọi
+parts; (2) syntax/import/aliases, state dict và parent fallback bitwise; (3)
+CUDA strict #14 B=2 canary cho parts=2, rồi B=4/8/16/32 theo memory gate; OOM là
+kết quả hợp lệ và dừng tăng parts; (4) full #14 strict B=32 trước timing; (5)
+alternating optimized-only V16.1/V19.1.0 và V19/V19.1.1, cùng
+seed/TF32/no-CUDA-Graph/warmup/repeats; (6) báo peak memory cùng latency. Không
+chạy parts 4/8 chỉ vì parts 2 PASS nếu headroom không đủ, và không dùng local
+CPU timing làm performance evidence.
+
+**Implementation và local result:** Scheduler chung nằm trong
+`v19_parallel_batch_common.py`; hai entrypoint là
+`v19_1_0_ParallelBatchV161.py` và `v19_1_1_ParallelBatchV19.py`. Aliases
+`v19.1.0`/`v19_1_0` và `v19.1.1`/`v19_1_1` đã nối vào matrix và ba tool #14.
+`shape14_accuracy.py` gọi full candidate batch khi parts>1 và batch-limit>1,
+thay vì bypass outer scheduler bằng B=1 sample helper.
+
+Local macOS/CPU PyTorch `2.12.1`: `py_compile` PASS; planner cover chính xác
+B=1/2/3/7/32/33 cho mọi parts, không range rỗng và độ lệch width tối đa 1.
+Mọi parts hợp lệ parse/configure đúng, parts>1 ép
+`max-autotune-no-cudagraphs`, invalid parts bị reject. State-dict keys khớp
+đúng parent; forced-large CPU path, mask/no-mask, training và BF16 đều khớp
+parent bitwise cho cả hai candidate. Official #2 one-trial smoke PASS:
+
+| Candidate | Parent | Max abs | Failed |
+|---|---|---:|---:|
+| V19.1.0 | V16.1 | `0.00084424` | `0/16,384` |
+| V19.1.1 | V19 K=32 portable | `0.00108075` | `0/16,384` |
+
+CPU timing bị loại: shape #2 có B=1/S=128 nên không đi vào parallel
+large-sequence path, và CPU không thể validate CUDA stream overlap.
+
+## 29. S8.16 — Full checkpoint timeline trên RTX 5090 driver 595
+
+**Trạng thái:** Complete. Full #1–#13, V16.1 start/end controls,
+reverse-order repeats và Baseline/V16.1 #14 đã có curated artifacts.
+
+**Giả thuyết/phạm vi:** Historical report cần đo toàn bộ checkpoint chính trên
+cùng host thay vì ghép các số từ nhiều phase/máy. Chạy Baseline, V1, V2,
+V3.1 eager, V3.1 compiled, V4.1, V4.2, V4.3, V8, V11 và V16.1 trên đủ official
+#1–#13. Correctness strict năm trial là gate trước timing `20/100/3`;
+compiled checkpoints dùng `max-autotune`. V16.1 được predeclare làm control
+đầu/cuối, drift budget 3%. Theo scope cuối của owner, #14 chỉ chạy Baseline và
+V16.1; historical checkpoint #14 sweep đã bị dừng và không report.
+
+**Environment:** Vast.ai RTX 5090 `sm120`, 32,607 MiB, driver `595.71.05`;
+AMD Ryzen 5 5600X, 12 logical CPUs, 33,564,246,016 bytes RAM; Python `3.12.14`,
+PyTorch `2.11.0+cu128`, CUDA `12.8`, cuDNN `9.19.0`, Triton `3.6.0`. Source
+snapshot `4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6`; remote snapshot không có
+`.git`, nên manifest dùng declared revision cùng SHA-256 source/dependencies.
+
+**Command chính:** `timeline_runner.py --checkpoints
+v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1
+--shape-ids 1-13 --accuracy-trials 5 --warmup 20 --repeats 100
+--benchmark-rounds 3 --seed 1234 --timeout 1800 --compile-mode max-autotune
+--control-drift-threshold 0.03`. Exact executable, environment ID và revision
+nằm trong `results/timeline-rtx5090-driver595/run_metadata.json`.
+
+| Checkpoint | Accuracy | Forward geomean | Reverse geomean |
+|---|---:|---:|---:|
+| Baseline | 13/13 PASS | `1.0011x` | — |
+| V1 | 13/13 PASS | `1.0763x` | — |
+| V2 | 13/13 PASS | `1.4353x` | — |
+| V3.1 eager | 13/13 PASS | `2.1006x` | — |
+| V3.1 compiled | 0/13 | N/A | — |
+| V4.1 | 13/13 PASS | `10.1999x` | `10.1926x` |
+| V4.2 | 13/13 PASS | `10.4489x` | `10.4349x` |
+| V4.3 | 13/13 PASS | `11.6755x` | `11.6948x` |
+| V8 | 13/13 PASS | `11.7854x` | `11.6580x` |
+| V11 | 13/13 PASS | `11.7483x` | `11.7439x` |
+| V16.1 start | 13/13 PASS | `11.8030x` | `11.7617x` |
+| V16.1 end | 13/13 PASS | `11.8383x` | — |
+
+V3.1 compiled fail strict cả 13 shapes với tổng `201,682` failed elements; mọi
+timing bị skip đúng gate. V16.1 baseline/optimized geomean drift lần lượt
+`0.166%`/`0.458%`; #6/#8/#13 đều dưới 3%, max `1.042%` ở optimized #8.
+V4.2 hơn V4.1 ổn định `2.38–2.44%` qua hai orders. V4.3/V8 và V8/V11 đổi dấu
+theo order; V11/V16.1 chỉ khác `0.15–0.47%`, nên không gán noise thành gain.
+
+**Shape #14:** Baseline `INFEASIBLE_STATIC`, latency/speedup N/A. V16.1 B1
+PASS `0/102,400,000`; streamed B32 PASS `0/3,276,800,000`, max abs
+`0.000944197`; native full B32 output contract PASS. Samples optimized-only
+`6987.4644/6983.9238/6987.4033/6992.8545/6994.9302 ms`; median
+`6987.4644 ms`, p90 `6994.0999 ms`, throughput `457,962.98 token/s`, peak
+`24.487 GiB`.
+
+**Reporting decision:** Promote V16.1 start-control `11.803x`, không chọn end
+control. Host driver-595 baseline geomean `3.5108 ms` chậm hơn driver-580
+`2.0355 ms` khoảng `72.48%`; optimized geomean `0.29745 ms` chậm hơn
+`0.25752 ms` khoảng `15.51%`. Vì source revision không đổi, chênh headline
+`7.904x → 11.803x` là cross-host ratio effect, không phải code improvement.
+
+Artifacts curated: `results/timeline-rtx5090-driver595/`, promoted
+`results/final/`, và archive cũ `results/cross-host-driver580/`.

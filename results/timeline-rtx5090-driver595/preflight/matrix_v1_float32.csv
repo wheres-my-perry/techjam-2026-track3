@@ -1,0 +1,1 @@
+checkpoint_id,checkpoint_label,shape_id,status,batch_size,seq_len,d_model,heads,layers,ffn_dim,causal,accuracy,max_abs,max_rel,failed,total,baseline_median_ms,baseline_p90_ms,baseline_throughput,optimized_median_ms,optimized_p90_ms,optimized_throughput,speedup,duration_s,returncode,error,command

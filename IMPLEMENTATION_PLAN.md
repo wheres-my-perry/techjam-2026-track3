@@ -2,13 +2,23 @@
 
 ## 1. Trạng thái tổng quan
 
-**Phase hiện tại:** Phase 6 cleanup — V16.1 đã được flatten vào
-`v16_1_clean.py`; đây là implementation duy nhất còn active ở repository root.
+**Phase hiện tại:** Phase 6 submission assembly — V16.1 đã được flatten vào
+`v16_1_clean.py`; đây vẫn là active/final implementation. Root hiện có thêm
+candidate versioned `v19_CUDAFP16Checkpoint.py`, nhưng V19 chưa qua CUDA gate và
+không thay `main.py`.
 File chứa đầy đủ model/config, FP16 cache, Flash-first attention, Triton
 FP32-pre-GELU và compiled executor #14, không import harness hay version cũ.
 `main.py` chỉ nối file standalone này vào benchmark harness; các version
 `v1`–`v18` lịch sử đã chuyển sang `archive/versions/`. Thuật toán và số liệu
-promotion D-038 không đổi.
+promotion D-038 không đổi. Fresh final run ngày 2026-08-31 đã validate đúng
+standalone artifact trên RTX 5090 driver `595.71.05`: #1–#13 strict PASS với
+predeclared start-control geomean `11.803x`, full #14 strict PASS
+`0/3,276,800,000`, native B32 PASS và optimized-only median `6987.4644 ms`;
+evidence được track trong `results/final/`. Full historical timeline cho 11
+checkpoint và reverse-order repeat đã hoàn tất trong
+`results/timeline-rtx5090-driver595/`. Evidence driver `580.159.03` cũ được
+giữ trong `results/cross-host-driver580/`; chênh `7.904x → 11.803x` không phải
+code gain vì baseline host mới chậm hơn `72.48%`.
 
 Trước cleanup, Phase 5 — V16.1 đã được promote qua `main.py` theo D-038:
 #1–#13 dùng source-clean V14.1/V11 packed-QKV path, còn FP32 eval `S >= 8192`
@@ -16,8 +26,9 @@ chạy batch chunk với standalone compiled B=1 executor tái sử dụng. Prom
 ưu tiên bỏ exact official-#13 tuple/V15 dependency và chủ đích trả lại win
 `0.98–2.20%` của V16 ở #13; không phải performance promotion. Predecessor V16
 #14 PASS strict `0/3,276,800,000` và giảm optimized-only median `3.11–3.61%`
-so với V14.1 trên RTX 5090/PyTorch 2.11; V16.1 mới có B=1 canary nên full #14
-rerun và robustness nhiều seed/hardware còn pending. V17 batch-chunk B=2 cũng PASS full strict nhưng chỉ giảm
+so với V14.1 trên RTX 5090/PyTorch 2.11. V16.1 khi đó mới có B=1 canary; full
+#14 rerun trên artifact clean đã PASS ngày 2026-08-31, còn robustness nhiều
+seed/hardware vẫn pending. V17 batch-chunk B=2 cũng PASS full strict nhưng chỉ giảm
 `0.30–0.59%` so V16 trong alternating run, nên giữ experimental và không đổi
 main V16 ở thời điểm D-033. Shape-#14 profiler sau đó xác nhận attention chiếm `92.258%`;
 built-in cuDNN/Efficient và FA4 không thắng PyTorch Flash. V18 SageAttention có
@@ -33,7 +44,10 @@ làm main. D-039 sau đó mở candidate V17-Sage riêng: measured prefix locali
 V18-Sage direct automatic hiện là performance-only probe trên V16.1; nó bỏ mọi
 correction để đo raw Sage SM120 và không đủ điều kiện promotion nếu accuracy fail.
 
-Repository đã có đề bài, benchmark Torch chính thức, chuỗi FP32 v1/v2/v3/v3.1 và các mixed-precision candidate V4/V4.1. GPU vật lý index `1` đã được xác nhận là RTX 5090; quyền device và venv riêng của Track 3 đã hoạt động. Các core branch/selected shapes đã pass cho candidate hợp lệ, nhưng full 14-shape accuracy/performance matrix chưa hoàn tất.
+Repository đã có đề bài, benchmark Torch chính thức, chuỗi ablation đầy đủ và
+active standalone artifact. Final GPU evidence đã bao phủ cả 14 official
+shapes; #14 giữ baseline/speedup N/A đúng protocol vì original score tensor
+không executable trên 32 GiB.
 
 ## 2. Quy ước trạng thái
 
@@ -63,7 +77,8 @@ Repository đã có đề bài, benchmark Torch chính thức, chuỗi FP32 v1/v
 - [x] Thêm xuất kết quả máy đọc được (JSON/CSV) qua official matrix runner.
 - [x] Thêm `matrix_runner.py` chạy đúng 14-shape benchmark matrix, tiếp tục qua OOM/error/timeout.
 - [x] Hiển thị `max_abs` trong bảng tổng kết terminal của matrix runner.
-- [ ] Thêm metadata môi trường: GPU capability, driver, CUDA, cuDNN, OS và git revision.
+- [x] Thêm metadata môi trường: GPU capability, driver, CUDA, cuDNN, OS, CPU,
+  RAM, disk và git revision trong `results/final/environment.json`.
 
 **Exit criteria:** một command có thể chạy toàn bộ shape matrix và tạo artifact kết quả tái lập được.
 
@@ -184,6 +199,16 @@ Repository đã có đề bài, benchmark Torch chính thức, chuỗi FP32 v1/v
 - [~] V18-Sage direct automatic trên source-clean V16.1: SM120 dùng Sage
   INT8-QK/FP8-PV, bỏ prefix/FP32-out correction; #8 fallback do Dh=256. Đây là
   benchmark-on-failure diagnostic, không phải accuracy-valid candidate.
+- [~] V19 thay riêng FFN-in/GELU của V16.1 bằng CUDA WMMA accumulator FP16 và
+  checkpoint partial sum vào FP32 theo K. Default K=32; controls K=16/64/128 và
+  WMMA-FP32 dùng cùng layout/epilogue. Local state/branch/opcheck và one-trial
+  #2 PASS; CUDA compile, strict matrix và paired performance pending vì GPU đang
+  có job. `main.py` vẫn V16.1.
+- [~] V19.1.0/V19.1.1 chia large batch thành 1/2/4/8/16/32 partition cân bằng
+  và enqueue trên nhiều CUDA stream; bản đầu kế thừa V16.1, bản sau kế thừa
+  V19. Local planner/state/fallback/official-#2 smoke PASS; outer scheduler
+  CUDA, strict full #14, peak memory và latency pending. Parts>1 dùng
+  `max-autotune-no-cudagraphs`; `main.py` vẫn V16.1.
 - [ ] So sánh code complexity, compile time, portability và speedup.
 
 **Exit criteria:** có ít nhất một candidate tốt nhất cho mỗi nhóm shape quan trọng.
@@ -216,11 +241,17 @@ Repository đã có đề bài, benchmark Torch chính thức, chuỗi FP32 v1/v
 
 ## 9. Phase 6 — Submission
 
-- [ ] Dọn repository và thêm `.gitignore`/dependency setup phù hợp.
+- [~] Dọn repository và thêm `.gitignore`/dependency setup phù hợp; source và
+  result evidence đã sạch, còn dependency install manifest cần chốt.
 - [x] Viết README cài đặt, chạy và tái lập kết quả.
 - [x] Chốt public repository.
-- [~] Đã viết `SOLUTION.md` cho các implementation hiện tại; cần hoàn thiện bằng full matrix và profiler evidence.
-- [ ] Chuẩn bị Devpost description.
+- [x] Cập nhật `SOLUTION.md` bằng fresh final matrix, environment và raw evidence.
+- [x] Chạy full 11-checkpoint timeline trên đủ #1–#13, V16.1 start/end drift
+  control và reverse-order repeat cho các aggregate chênh dưới 3%.
+- [x] Chạy shape #14 theo scope cuối Baseline/V16.1: static feasibility,
+  streamed strict, native B32 và optimized-only timing.
+- [~] Đã tạo `DEVPOST.md` submission-ready; còn điền team contributions và
+  public YouTube URL từ owner.
 - [ ] Quay demo video public trên YouTube.
 - [ ] Kiểm tra licensing/trademark/copyright.
 
@@ -228,45 +259,43 @@ Repository đã có đề bài, benchmark Torch chính thức, chuỗi FP32 v1/v
 
 ## 10. Việc ưu tiên tiếp theo
 
-1. Hoàn tất GPU idle canary V14.1 cho compiled #2/#12 và full #14; ghi compile
-   cost/lifecycle riêng, không biến optimized-only #14 thành paired claim.
-2. Chạy v1/v2/v3 trên các shape đại diện để hoàn thiện ablation, rồi mở rộng nhiều seed/input scale cho v3.1.
-3. Chạy matrix runner, kiểm tra JSON/CSV rồi ghi kết quả official vào `EXPERIMENTS.md`.
-4. Chạy compile-aware profiler cho v3.1 eager/default/reduce-overhead trên shape #1, xác nhận kernel/CUDA Graph attribution rồi mở rộng theo nhóm shape.
-5. Mở rộng robustness matrix: theo dõi margin #7 qua nhiều seed/input scale và
-   chạy V14 #14 thêm seed/padding để kiểm tra invariant prefix-valid.
-6. Giữ max-autotune làm execution config tốt nhất hiện tại; đo compile/autotune
-   cost riêng. Chỉ mở lại V6 nếu có cách giữ epilogue fusion hoặc cần kiểm chứng
-   riêng tín hiệu host/device trái nhau ở shape #2.
-7. Không thay residual/LayerNorm codegen hiện tại bằng standalone Triton nếu
-   chưa có profiler evidence mới; V7a đã hạ xuống cùng graph với V4.3.
-8. Giữ V8 FFN/GELU làm shape-specific best path cho #6; chỉ mở rộng dispatch
-   theo measured winners #1/#3/#4/#5/#10 sau measurement dài;
-   giữ V4.3 ở #2/#11/#12, không dựa trên microbenchmark hoặc kernel count.
-9. Giữ V16.1 làm main theo D-038, V16 làm direct-QKV rollback, V17 làm batch-2
-   ablation và V15/V14.1/V11 làm rollback thấp hơn; trước final submission chạy
-   full #14 V16.1 gate cùng multi-seed, input-scale, padding, compile cold-start
-   và scorer output-lifetime matrix. Chỉ mở lại B=2/B=4 nếu profiler hoặc
-   interleaved measurement chứng minh gain vượt drift.
-10. Không tiếp tục naive FP8 hoặc full FP16 accumulation; chỉ mở lại khi có calibration/QAT hoặc precision recipe
-   mới pass strict accuracy trước benchmark.
-11. Không viết INT8 FFN-in kernel cho recipe symmetric V13 hiện tại: official
-   #2 fail ngay cả weight-only một layer. Chỉ mở lại với outlier routing,
-   correction/calibration recipe khác về bản chất và accuracy-only probe pass.
-12. Rerun V16.1/V16/V14.1 #14 trên cùng stack trước để xác nhận main mới, rồi
-   lặp lại trên hardware/PyTorch khác trước khi xem compiled dispatch là
-   universal; gain V16 cũ hiện `3.11–3.61%` trên một stack. Với direct-QKV,
-   benchmark candidate workload-rule mới đối chiếu V16.1/V14.1 thay vì phục hồi
-   exact-#13 dispatch của V15/V16.
-13. V17-Sage selective-prefix correction đã fail official #6/#9 và bị reject.
-   V18-Sage direct automatic chỉ đo trần performance; mọi timing trên row
-   `ACCURACY_FAIL` phải giữ nhãn invalid diagnostic. FA4 b28 vẫn bị loại vì
-   chậm `7.72%`; historical V18 raw PV-FP16 vẫn là negative control.
-14. Với direct-layout QKV, reject force-all V15.1. Nếu làm candidate tiếp theo,
-    xây trên V16.1 và bật theo regime large `B*S` + `D=FFN=128` để bao phủ #6,
-    không khôi phục exact-#13 tuple; chạy multi-seed/padding cùng aggregate
-    #1–#13 trước khi sửa main.
-15. V18-Sage gate integration theo thứ tự dependency/source commit → custom-op
-    `opcheck` → eager/compiled no-CUDA-Graph equivalence. Owner có thể chạy
-    full performance probe với `--benchmark-on-failure`; comparator/tolerance
-    không đổi và kết quả không được promote nếu bất kỳ official shape nào fail.
+### Submission close-out
+
+1. Review Devpost description từ final driver-595 table trong `results/final/`,
+   nêu rõ geomean #1–#13, cross-host caveat và tách #14 optimized-only khỏi
+   paired speedup.
+2. Chốt dependency installation manifest cho Python `3.12`, PyTorch
+   `2.11.0+cu128` và Triton `3.6.0`; kiểm tra clone-clean reproduction.
+3. Bổ sung team-member contributions, development tools/API disclosure và link
+   public demo video — đây là dữ liệu owner-specific không thể suy từ benchmark.
+4. Quay demo: clone/import standalone artifact, chạy một short-shape strict
+   gate, trình bày final matrix và walkthrough shape-#14 memory-bounded path.
+5. Kiểm tra license, trademark và copyrighted assets trước khi public video.
+
+### Post-submission optimization roadmap
+
+6. **Exact attention first:** viết adapter version hóa cho FlashInfer SM120,
+   gate #13 rồi #14 B1, đưa layout/adapter copy vào timing và giữ PyTorch Flash
+   làm control. Không rerun cuDNN/FA4/Sage hiện tại như candidate mới vì đã có
+   performance/correctness evidence chặn promotion.
+7. **QKV/layout/memory fusion:** thử TE `LayerNormLinear` hoặc CUTLASS/custom
+   direct-layout epilogue; với #14 thử separate/no-concat QKV activation và
+   scratch reuse. Gate từng thay đổi riêng trước khi compose.
+8. **Accuracy-aware router:** bắt đầu từ measured direct-QKV winner cho large
+   `B*S`, `D=FFN=128`; dùng workload/GPU predicate, full strict matrix,
+   reverse-order/raw-device evidence và aggregate gate, không hard-code test ID.
+9. **Robustness/portability:** mở rộng multi-seed, input scale, padding,
+   causal/non-causal và mask coverage; log actual backend, peak
+   allocated/reserved, compile cold-start và steady-state. Rerun trên
+   GPU/software stack thứ hai; không thay start-control `11.803x` bằng một run
+   đẹp hơn.
+10. **Later exact kernels:** chỉ thử cuBLASLt/TE/CUTLASS FFN cho #6/#8 hoặc
+    `D=32`/`Dh=8` persistent kernel cho #7/#11 sau target profiling.
+11. **Deferred research:** protected low precision và custom SM120 attention chỉ
+    mở khi exact library/fusion path đã được đo. Accuracy-only #1/#8/#13 đứng
+    trước mọi timing low-precision.
+12. Giữ V16.1 làm main. V19 checkpointed-FP16 và V19.1 multi-stream tiếp tục là
+    deferred prototypes: attention chiếm `92.258%` ở #14, còn B=2 chỉ thắng
+    `0.30–0.59%`, nên hai nhánh này không đứng trước FlashInfer/layout work.
+    Mọi optimization mới vẫn phải version hóa, PASS strict full matrix rồi mới
+    được thay final evidence.

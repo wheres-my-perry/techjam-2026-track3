@@ -1,0 +1,8 @@
+--index-url https://download.pytorch.org/whl/cu128
+
+# Exact final benchmark stack. RTX 50/SM120 requires a CUDA 12.8+ wheel.
+torch==2.11.0+cu128
+
+# PyTorch normally installs the matching Triton dependency; the explicit pin
+# records the version used for the checked-in final evidence.
+triton==3.6.0

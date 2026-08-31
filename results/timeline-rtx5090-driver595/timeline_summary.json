@@ -1,0 +1,294 @@
+{
+  "metadata": {
+    "started_at": "2026-08-31T13:32:43.430981+00:00",
+    "run_id": "full14-sweep-r1",
+    "source_revision": "4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+    "source_revision_verification": "declared-snapshot-with-file-sha256",
+    "runner_sha256": "0956cd5dc914b87e3134ab966870adc8912e60e4dd55d7392ae135efad858606",
+    "adapter_sha256": "b0ee017fc9f283fdd39535b8518606904be6675bc8819c2d486ea794d644f8a0",
+    "environment": {
+      "environment_id": "rtx5090-sm120-driver595.71.05-torch2.11-cu128",
+      "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.39",
+      "python_executable": "/venv/main/bin/python",
+      "runtime": {
+        "cuda_wheel": "12.8",
+        "cudnn": "91900",
+        "python": "3.12.14",
+        "pytorch": "2.11.0+cu128",
+        "triton": "3.6.0"
+      },
+      "gpu_at_start": {
+        "inventory": {
+          "command": "nvidia-smi --query-gpu=name,uuid,driver_version,memory.total,pstate,temperature.gpu,clocks.sm,power.draw --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": "NVIDIA GeForce RTX 5090, GPU-9a88c6a2-9ed4-c3d3-ae01-35c08422a78e, 595.71.05, 32607, P5, 35, 247, 8.76"
+        },
+        "compute_processes": {
+          "command": "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": ""
+        }
+      }
+    },
+    "checkpoint_ids": [
+      "v16_1",
+      "baseline",
+      "v1",
+      "v2",
+      "v3_1_eager",
+      "v3_1_compiled",
+      "v4_1",
+      "v4_2",
+      "v4_3",
+      "v8",
+      "v11",
+      "v16_1"
+    ],
+    "shape_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "protocol": {
+      "device": "cuda:0",
+      "dtype": "float32",
+      "accuracy_trials": 5,
+      "warmup": 20,
+      "repeats": 100,
+      "benchmark_rounds": 3,
+      "seed": 1234,
+      "timeout": 1800,
+      "matmul_precision": "high",
+      "allow_tf32": true,
+      "compile_mode": "max-autotune"
+    },
+    "invocation": "/venv/main/bin/python timeline_runner.py --python /venv/main/bin/python --checkpoints v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1 --shape-ids 1-13 --device cuda:0 --dtype float32 --accuracy-trials 5 --warmup 20 --repeats 100 --benchmark-rounds 3 --seed 1234 --timeout 1800 --matmul-precision high --compile-mode max-autotune --control-drift-threshold 0.03 --run-id full14-sweep-r1 --environment-id rtx5090-sm120-driver595.71.05-torch2.11-cu128 --source-revision 4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+    "finished_at": "2026-08-31T14:09:35.828387+00:00"
+  },
+  "summaries": [
+    {
+      "checkpoint_id": "v16_1",
+      "run_label": "v16_1__01",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.00179085,
+      "measured_speedup_geomean": 11.802998698286368,
+      "official_full_speedup_geomean": 11.802998698286368,
+      "optimized_geomean_ms": 0.2974497927458999
+    },
+    {
+      "checkpoint_id": "baseline",
+      "run_label": "baseline",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.0,
+      "measured_speedup_geomean": 1.0010761195697508,
+      "official_full_speedup_geomean": 1.0010761195697508,
+      "optimized_geomean_ms": 3.469317317795027
+    },
+    {
+      "checkpoint_id": "v1",
+      "run_label": "v1",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.000607941,
+      "measured_speedup_geomean": 1.076311492595486,
+      "official_full_speedup_geomean": 1.076311492595486,
+      "optimized_geomean_ms": 3.2378381164052947
+    },
+    {
+      "checkpoint_id": "v2",
+      "run_label": "v2",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.0013275,
+      "measured_speedup_geomean": 1.4353382340071856,
+      "official_full_speedup_geomean": 1.4353382340071856,
+      "optimized_geomean_ms": 2.4274035103364517
+    },
+    {
+      "checkpoint_id": "v3_1_eager",
+      "run_label": "v3_1_eager",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.0013275,
+      "measured_speedup_geomean": 2.1005799084565004,
+      "official_full_speedup_geomean": 2.1005799084565004,
+      "optimized_geomean_ms": 1.665486039159693
+    },
+    {
+      "checkpoint_id": "v3_1_compiled",
+      "run_label": "v3_1_compiled",
+      "status": "INCOMPLETE",
+      "passed_shapes": 0,
+      "total_shapes": 13,
+      "failed_elements": 201682,
+      "worst_max_abs": 0.00583315,
+      "measured_speedup_geomean": null,
+      "official_full_speedup_geomean": null,
+      "optimized_geomean_ms": null
+    },
+    {
+      "checkpoint_id": "v4_1",
+      "run_label": "v4_1",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.00188218,
+      "measured_speedup_geomean": 10.199916594969245,
+      "official_full_speedup_geomean": 10.199916594969245,
+      "optimized_geomean_ms": 0.34355340927679934
+    },
+    {
+      "checkpoint_id": "v4_2",
+      "run_label": "v4_2",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.00188218,
+      "measured_speedup_geomean": 10.448914240787195,
+      "official_full_speedup_geomean": 10.448914240787195,
+      "optimized_geomean_ms": 0.3344556768116313
+    },
+    {
+      "checkpoint_id": "v4_3",
+      "run_label": "v4_3",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.00188214,
+      "measured_speedup_geomean": 11.675531084146742,
+      "official_full_speedup_geomean": 11.675531084146742,
+      "optimized_geomean_ms": 0.3003798032534425
+    },
+    {
+      "checkpoint_id": "v8",
+      "run_label": "v8",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.00188214,
+      "measured_speedup_geomean": 11.785400298655173,
+      "official_full_speedup_geomean": 11.785400298655173,
+      "optimized_geomean_ms": 0.29798988206605853
+    },
+    {
+      "checkpoint_id": "v11",
+      "run_label": "v11",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.00179085,
+      "measured_speedup_geomean": 11.748305638183314,
+      "official_full_speedup_geomean": 11.748305638183314,
+      "optimized_geomean_ms": 0.29849139763566535
+    },
+    {
+      "checkpoint_id": "v16_1",
+      "run_label": "v16_1__02",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "worst_max_abs": 0.00179085,
+      "measured_speedup_geomean": 11.838288178275787,
+      "official_full_speedup_geomean": 11.838288178275787,
+      "optimized_geomean_ms": 0.2960880757038635
+    }
+  ],
+  "control_drift": {
+    "status": "PASS",
+    "controls": [
+      {
+        "checkpoint_id": "v16_1",
+        "start_run_label": "v16_1__01",
+        "end_run_label": "v16_1__02",
+        "threshold": 0.03,
+        "metrics": {
+          "baseline_median_ms_geomean": {
+            "start": 3.510795379545758,
+            "end": 3.504953481055031,
+            "relative_drift": 0.0016639814797416719,
+            "pass": true
+          },
+          "optimized_median_ms_geomean": {
+            "start": 0.2974497927458999,
+            "end": 0.2960880757038635,
+            "relative_drift": 0.0045779727377375234,
+            "pass": true
+          }
+        },
+        "heavy_shapes": {
+          "6": {
+            "baseline_median_ms": {
+              "start": 177.3218,
+              "end": 177.3779,
+              "relative_drift": 0.000316373959659888,
+              "pass": true
+            },
+            "optimized_median_ms": {
+              "start": 25.1813,
+              "end": 25.2597,
+              "relative_drift": 0.0031134214675174743,
+              "pass": true
+            }
+          },
+          "8": {
+            "baseline_median_ms": {
+              "start": 6.6464,
+              "end": 6.6399,
+              "relative_drift": 0.0009779730380355955,
+              "pass": true
+            },
+            "optimized_median_ms": {
+              "start": 2.7936,
+              "end": 2.8227,
+              "relative_drift": 0.01041666666666674,
+              "pass": true
+            }
+          },
+          "13": {
+            "baseline_median_ms": {
+              "start": 41.8362,
+              "end": 41.8442,
+              "relative_drift": 0.00019122195610510317,
+              "pass": true
+            },
+            "optimized_median_ms": {
+              "start": 1.0793,
+              "end": 1.0744,
+              "relative_drift": 0.004539979616417944,
+              "pass": true
+            }
+          }
+        },
+        "status": "PASS"
+      }
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "source_revision": "4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+  "environment_id": "rtx5090-sm120-driver595.71.05-torch2.11-cu128",
+  "implementation": "main.py -> v16_1_clean.py",
+  "shape": {
+    "batch_size": 32,
+    "seq_len": 100000,
+    "d_model": 1024,
+    "heads": 16,
+    "layers": 2,
+    "ffn_dim": 1024,
+    "causal": true
+  },
+  "baseline": {
+    "status": "INFEASIBLE_STATIC",
+    "latency_ms": null,
+    "speedup": null,
+    "reason": "The explicit attention score tensor would require approximately 18.6 TiB."
+  },
+  "b1_accuracy": {
+    "status": "PASS",
+    "failed_elements": 0,
+    "total_elements": 102400000,
+    "max_abs": 0.0006406903266906738,
+    "elapsed_seconds": 15.293916060822085,
+    "peak_allocated_gib": 8.138182163238525
+  },
+  "streamed_b32_accuracy": {
+    "status": "PASS",
+    "seed": 1234,
+    "failed_elements": 0,
+    "total_elements": 3276800000,
+    "max_abs": 0.0009441971778869629,
+    "max_rel": 151706320.0,
+    "mean_abs": 0.00006563669754813722,
+    "elapsed_seconds": 330.7831118470058,
+    "peak_allocated_gib": 19.966630458831787,
+    "query_chunk": 256,
+    "compare_token_chunk": 2048
+  },
+  "native_b32_probe": {
+    "status": "PASS",
+    "output_shape": [32, 100000, 1024],
+    "output_dtype": "torch.float32",
+    "elapsed_seconds": 11.918301615864038,
+    "peak_allocated_gib": 26.030383110046387
+  },
+  "performance": {
+    "kind": "optimized-only",
+    "warmup": 1,
+    "repeats": 5,
+    "samples_ms": [
+      6987.46435546875,
+      6983.923828125,
+      6987.4033203125,
+      6992.8544921875,
+      6994.93017578125
+    ],
+    "median_ms": 6987.46435546875,
+    "mean_ms": 6989.315234375,
+    "p90_ms": 6994.09990234375,
+    "min_ms": 6983.923828125,
+    "throughput_tokens_per_second": 457962.98016111023,
+    "peak_allocated_gib": 24.487462997436523,
+    "baseline_ms": null,
+    "speedup": null
+  }
+}

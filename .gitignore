@@ -8,3 +8,5 @@ tmp/
 *.nsys-rep
 benchmark-results/
 profile-results/
+# Historical ad-hoc remote captures may contain an endpoint in their path.
+results/remote-*/

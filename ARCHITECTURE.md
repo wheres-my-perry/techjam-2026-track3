@@ -14,6 +14,10 @@ Public repository: [wheres-my-perry/techjam-2026-track3](https://github.com/wher
 | `torch_transformer_benchmark.py` | Reference implementation và benchmark harness gốc. |
 | `main.py` | Benchmark entrypoint trỏ tới standalone `v16_1_clean.py`. |
 | `v16_1_clean.py` | Active V16.1: model/config/kernel/cache/executor đầy đủ, không import harness hoặc version cũ. |
+| `v19_CUDAFP16Checkpoint.py` | Experimental V19 trên V16.1: CUDA WMMA FFN-in/GELU accumulate FP16 và checkpoint FP32 theo K; GPU gate pending. |
+| `v19_parallel_batch_common.py` | Scheduler chung chia large batch thành các range cân bằng và enqueue lên nhiều CUDA stream, không đổi arithmetic/state dict. |
+| `v19_1_0_ParallelBatchV161.py` | Experimental V19.1.0: V16.1 + parallel batch scheduler cho large-sequence path. |
+| `v19_1_1_ParallelBatchV19.py` | Experimental V19.1.1: V19 CUDA arithmetic + cùng parallel batch scheduler. |
 | `archive/versions/` | Toàn bộ implementation `v1`–`v18` lịch sử, giữ làm evidence/rollback nhưng không còn là runner target. |
 | `v1_fuseQKV.py` | V1: gộp Q/K/V projection thành một phép `F.linear`. |
 | `v2_SPDA.py` | V2: V1 + PyTorch SDPA. |
@@ -47,10 +51,17 @@ Public repository: [wheres-my-perry/techjam-2026-track3](https://github.com/wher
 | `v4_mixed_precision_common.py` | Dependency nội bộ của `v4_3_Flash.py`; giữ cache/forward mixed precision. |
 | `v4_1_clean.py` | Bản V4.1 standalone chỉ chứa config/model FP16; không phụ thuộc benchmark harness và không phải runner target. |
 | `matrix_runner.py` | Chạy một implementation trên đúng 14 official shapes và xuất JSON/CSV. |
+| `timeline_adapter.py` | Registry archived checkpoint, dependency hashes, class injection và strict preflight. |
+| `timeline_runner.py` | Chạy full #1–#13 cho historical checkpoints, occurrence controls và drift report. |
+| `shape14_checkpoint_worker.py` | Worker process-isolated cho B1/streamed/native/timing shape #14. |
+| `shape14_timeline_runner.py` | Điều phối Baseline/V16.1 shape #14 theo correctness/native gates. |
 | `profile_models.py` | Accuracy gate, benchmark và PyTorch Profiler/Kineto cho nhiều implementation trên cùng official shape. |
 | `AGENTS.md` | Quy tắc làm việc cho người và coding agent. |
 | `SOLUTION.md` | Technical report đầy đủ cho các implementation hiện tại. |
 | `EXPERIMENTS.md` | Nhật ký phương án, thử nghiệm và kết quả. |
+| `results/final/` | Final active-main JSON/CSV/log và environment manifest được track. |
+| `results/timeline-rtx5090-driver595/` | Full historical matrix, reverse-order evidence và drift report cùng environment. |
+| `results/cross-host-driver580/` | Archive evidence final trên host/driver 580 trước đó. |
 | `IMPLEMENTATION_PLAN.md` | Roadmap, phase và trạng thái triển khai. |
 | `DECISION.md` | Nhật ký quyết định kỹ thuật dài hạn. |
 | `tmp/` | Tài liệu/thành phẩm tạm; không thuộc runtime benchmark. |
@@ -580,8 +591,55 @@ compiled B=1 executor; nó chỉ import PyTorch và optional Triton.
 `main.py` là adapter benchmark riêng, còn matrix/profile và shape-#14 tools chỉ
 resolve active aliases về main/clean. Toàn bộ 35 version/opcheck files khác nằm
 trong `archive/versions/` và không tham gia import graph active. State dict và
-local branch/executor outputs đã khớp composed V16.1 bit-for-bit; GPU rerun vẫn
-là validation debt, nên packaging này không tạo performance claim mới.
+local branch/executor outputs đã khớp composed V16.1 bit-for-bit. Fresh GPU run
+ngày 2026-08-31 trên đúng standalone artifact đã đóng validation debt. Sweep
+driver `595.71.05` mới chạy lại toàn bộ checkpoint và promote V16.1
+start-control: official #1–#13 strict PASS với geomean `11.803x`; full #14 PASS
+`0/3,276,800,000`, native B32 PASS và optimized-only median `6987.4644 ms`.
+Start/end drift gate 3% PASS. Raw curated evidence nằm ở `results/final/` và
+`results/timeline-rtx5090-driver595/`; driver-580 evidence cũ nằm trong
+`results/cross-host-driver580/`.
+
+### 10.26 V19 CUDA checkpointed-FP16 FFN-in
+
+`v19_CUDAFP16Checkpoint.py` kế thừa standalone V16.1 nhưng chỉ override
+`_mixed_ffn()`. FFN-in và exact GELU được thực hiện bởi một extension CUDA C++
+dùng block `64x32`, tám warps và WMMA `16x16x16`; QKV/SDPA, attention-out,
+FFN-out, residual/LayerNorm, cache/state dict, fallback và large-sequence
+executor giữ nguyên.
+
+Default `TECHJAM_V19_CHECKPOINT_K=32` chạy hai MMA với accumulator FP16, store
+partial `16x16`, promote thủ công từng phần tử vào register FP32 rồi reset
+accumulator FP16. Bias và exact erf-GELU đọc tổng FP32; GELU output vẫn FP16
+như precision boundary V16.1. Cùng source có controls `K=16/64/128` và `fp32`
+để sweep accuracy/latency mà không đổi layout hoặc epilogue.
+
+Extension được build khi model chuyển sang CUDA, trước outer `torch.compile`.
+CUDA build failure là hard error mặc định để runner không silent fallback rồi
+gắn timing V16.1 cho V19. Candidate chỉ có local CPU structural/opcheck và
+one-trial accuracy smoke; chưa compile/chạy CUDA, chưa benchmark và không được
+promote qua `main.py` cho tới khi strict GPU matrix PASS.
+
+### 10.27 V19.1 parallel batch partitions
+
+`v19_parallel_batch_common.py` cung cấp một mixin outer scheduler dùng chung.
+V19.1.0 ghép mixin với V16.1; V19.1.1 ghép nó với V19, nên hai candidate giữ
+nguyên arithmetic của đúng parent và chỉ khác cách schedule official shape #14.
+
+`TECHJAM_V19_PARALLEL_PARTS=1|2|4|8|16|32` chọn số partition, mặc định 2.
+Scheduler chia B thành các range liên tục cân bằng, tạo tối đa `min(B, parts)`
+worker streams, và mỗi worker chạy tuần tự executor B=1 trên range của nó. Mỗi
+worker chờ current stream trước khi đọc input/weights; current stream chờ toàn
+bộ worker trước khi trả output. Input, mask và output được `record_stream` để
+caching allocator giữ đúng lifetime.
+
+Parts=1, CPU, training, non-FP32, short sequence và B=1 gọi nguyên parent path.
+Với parts>1, inner Inductor executor bắt buộc dùng
+`max-autotune-no-cudagraphs` để tránh concurrent replay dùng chung static CUDA
+Graph buffers. Stream cache không persistent, không vào `state_dict`, và được
+xóa cùng compiled-executor cache sau load/move hoặc đổi mode. Candidate chưa có
+CUDA correctness, peak-memory hoặc latency evidence; số stream chỉ được tăng
+sau từng memory gate trên GPU idle.
 
 ## 11. Điểm mở rộng
 
@@ -602,7 +660,30 @@ là validation debt, nên packaging này không tạo performance claim mới.
 
 ## 12. Môi trường GPU mục tiêu
 
-Inventory ngày 2026-08-26:
+Final submission inventory ngày 2026-08-31:
+
+| Thành phần | Giá trị |
+|---|---|
+| Provider/container | Vast.ai, Ubuntu 24.04.4, kernel `5.15.0-187-generic` |
+| CPU | AMD Ryzen 5 5600X 6-Core Processor; 12 logical CPUs visible |
+| RAM / workspace disk | `33,564,246,016` bytes RAM / 16 GiB overlay |
+| GPU | NVIDIA GeForce RTX 5090, compute capability `12.0`, 32,607 MiB visible VRAM |
+| NVIDIA driver | `595.71.05` |
+| Python | `3.12.14` |
+| PyTorch / CUDA wheel | `2.11.0+cu128` / `12.8` |
+| cuDNN / Triton | `9.19.0` / `3.6.0` |
+| Git revision | `4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6` |
+
+Instance chỉ có một GPU nên final commands dùng `CUDA_VISIBLE_DEVICES=0` và
+process gọi nó là `cuda:0`. Machine-readable inventory nằm tại
+`results/final/environment.json`.
+
+Evidence driver `580.159.03` trên AMD EPYC 9135/64 GB RAM được giữ riêng trong
+`results/cross-host-driver580/`. Baseline geomean của host driver-595 chậm hơn
+host cũ `72.48%`, còn optimized geomean chậm hơn `15.51%`; vì vậy ratio
+`7.904x → 11.803x` không đại diện thay đổi code.
+
+Inventory lịch sử ngày 2026-08-26 trên máy phát triển ban đầu:
 
 | Thành phần | Giá trị |
 |---|---|

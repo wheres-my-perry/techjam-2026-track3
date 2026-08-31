@@ -1,0 +1,150 @@
+{
+  "metadata": {
+    "started_at": "2026-08-31T13:31:55.486532+00:00",
+    "run_id": "full14-preflight-venv",
+    "source_revision": "4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+    "source_revision_verification": "declared-snapshot-with-file-sha256",
+    "runner_sha256": "0956cd5dc914b87e3134ab966870adc8912e60e4dd55d7392ae135efad858606",
+    "adapter_sha256": "b0ee017fc9f283fdd39535b8518606904be6675bc8819c2d486ea794d644f8a0",
+    "environment": {
+      "environment_id": "rtx5090-sm120-driver595.71.05-torch2.11-cu128",
+      "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.39",
+      "python_executable": "/venv/main/bin/python",
+      "runtime": {
+        "cuda_wheel": "12.8",
+        "cudnn": "91900",
+        "python": "3.12.14",
+        "pytorch": "2.11.0+cu128",
+        "triton": "3.6.0"
+      },
+      "gpu_at_start": {
+        "inventory": {
+          "command": "nvidia-smi --query-gpu=name,uuid,driver_version,memory.total,pstate,temperature.gpu,clocks.sm,power.draw --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": "NVIDIA GeForce RTX 5090, GPU-9a88c6a2-9ed4-c3d3-ae01-35c08422a78e, 595.71.05, 32607, P8, 36, 195, 10.90"
+        },
+        "compute_processes": {
+          "command": "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": ""
+        }
+      }
+    },
+    "checkpoint_ids": [
+      "baseline",
+      "v1",
+      "v2",
+      "v3_1_eager",
+      "v3_1_compiled",
+      "v4_1",
+      "v4_2",
+      "v4_3",
+      "v8",
+      "v11",
+      "v16_1"
+    ],
+    "shape_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "protocol": {
+      "device": "cuda:0",
+      "dtype": "float32",
+      "accuracy_trials": 5,
+      "warmup": 20,
+      "repeats": 100,
+      "benchmark_rounds": 3,
+      "seed": 1234,
+      "timeout": 1800,
+      "matmul_precision": "high",
+      "allow_tf32": true,
+      "compile_mode": "max-autotune"
+    },
+    "invocation": "/venv/main/bin/python timeline_runner.py --python /venv/main/bin/python --preflight-only --checkpoints primary --shape-ids 1-13 --run-id full14-preflight-venv --environment-id rtx5090-sm120-driver595.71.05-torch2.11-cu128 --source-revision 4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+    "checkpoint_id": "v1",
+    "run_label": "v1",
+    "occurrence": 1,
+    "checkpoint": {
+      "checkpoint_id": "v1",
+      "label": "V1 fused QKV",
+      "source": "archive/versions/v1_fuseQKV.py",
+      "class_name": "UserOptimizedTransformer",
+      "compile_user": false,
+      "shape14_strategy": "static_infeasible",
+      "shape14_static_reason": "explicit attention materializes an S-by-S score tensor",
+      "files": [
+        {
+          "path": "archive/versions/v1_fuseQKV.py",
+          "sha256": "fff5ee507ae778c1f193f58119e807ede0abdb483c0156a7ebb8ed7aee2dcb72"
+        },
+        {
+          "path": "torch_transformer_benchmark.py",
+          "sha256": "c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500"
+        }
+      ]
+    },
+    "preflight": {
+      "command": "/venv/main/bin/python /workspace/techjam-2026-track3/timeline_adapter.py --checkpoint v1 --preflight-only",
+      "returncode": 0,
+      "output": "TIMELINE_PREFLIGHT_JSON={\"checkpoint\": {\"checkpoint_id\": \"v1\", \"class_name\": \"UserOptimizedTransformer\", \"compile_user\": false, \"files\": [{\"path\": \"archive/versions/v1_fuseQKV.py\", \"sha256\": \"fff5ee507ae778c1f193f58119e807ede0abdb483c0156a7ebb8ed7aee2dcb72\"}, {\"path\": \"torch_transformer_benchmark.py\", \"sha256\": \"c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500\"}], \"label\": \"V1 fused QKV\", \"shape14_static_reason\": \"explicit attention materializes an S-by-S score tensor\", \"shape14_strategy\": \"static_infeasible\", \"source\": \"archive/versions/v1_fuseQKV.py\"}, \"forward_parameters\": [\"self\", \"x\", \"valid_token_mask\"], \"resolved_class\": \"_timeline_v1_12472.UserOptimizedTransformer\", \"resolved_module\": \"_timeline_v1_12472\", \"state_dict_keys\": 66, \"status\": \"PASS\", \"weight_equivalence\": true}",
+      "duration_s": 1.115,
+      "status": "PASS",
+      "details": {
+        "checkpoint": {
+          "checkpoint_id": "v1",
+          "class_name": "UserOptimizedTransformer",
+          "compile_user": false,
+          "files": [
+            {
+              "path": "archive/versions/v1_fuseQKV.py",
+              "sha256": "fff5ee507ae778c1f193f58119e807ede0abdb483c0156a7ebb8ed7aee2dcb72"
+            },
+            {
+              "path": "torch_transformer_benchmark.py",
+              "sha256": "c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500"
+            }
+          ],
+          "label": "V1 fused QKV",
+          "shape14_static_reason": "explicit attention materializes an S-by-S score tensor",
+          "shape14_strategy": "static_infeasible",
+          "source": "archive/versions/v1_fuseQKV.py"
+        },
+        "forward_parameters": [
+          "self",
+          "x",
+          "valid_token_mask"
+        ],
+        "resolved_class": "_timeline_v1_12472.UserOptimizedTransformer",
+        "resolved_module": "_timeline_v1_12472",
+        "state_dict_keys": 66,
+        "status": "PASS",
+        "weight_equivalence": true
+      }
+    },
+    "updated_at": "2026-08-31T13:31:57.695560+00:00"
+  },
+  "summary": {
+    "checkpoint_id": "v1",
+    "run_label": "v1",
+    "status": "PASS",
+    "passed_shapes": 0,
+    "total_shapes": 0,
+    "failed_elements": 0,
+    "worst_max_abs": null,
+    "measured_speedup_geomean": null,
+    "official_full_speedup_geomean": null,
+    "optimized_geomean_ms": null
+  },
+  "results": []
+}

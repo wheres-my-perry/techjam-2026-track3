@@ -1,0 +1,35 @@
+shape=#14 B=32 S=100000 D=1024 H=16 L=2 FFN=1024 causal=True
+criterion: abs_error < 0.002 OR relative_error < 2%; query_chunk=256; batches=32; implementation=v19.1.1; executor_batch=2; parallel_parts=2; inner_mode=max-autotune-no-cudagraphs; inner_compile=True
+batch 01/32: PASS | cumulative_max_abs=0.000893593 | cumulative_max_rel=9904.07 | cumulative_failed=0/102400000 | elapsed=10.363s
+batch 02/32: PASS | cumulative_max_abs=0.000893593 | cumulative_max_rel=9904.07 | cumulative_failed=0/204800000 | elapsed=9.974s
+batch 03/32: PASS | cumulative_max_abs=0.000930786 | cumulative_max_rel=9904.07 | cumulative_failed=0/307200000 | elapsed=10.410s
+batch 04/32: PASS | cumulative_max_abs=0.000930786 | cumulative_max_rel=9904.07 | cumulative_failed=0/409600000 | elapsed=9.974s
+batch 05/32: PASS | cumulative_max_abs=0.000930786 | cumulative_max_rel=9904.07 | cumulative_failed=0/512000000 | elapsed=10.410s
+batch 06/32: PASS | cumulative_max_abs=0.000930786 | cumulative_max_rel=26449.7 | cumulative_failed=0/614400000 | elapsed=9.974s
+batch 07/32: PASS | cumulative_max_abs=0.000930786 | cumulative_max_rel=26449.7 | cumulative_failed=0/716800000 | elapsed=10.411s
+batch 08/32: PASS | cumulative_max_abs=0.000930786 | cumulative_max_rel=26449.7 | cumulative_failed=0/819200000 | elapsed=9.974s
+batch 09/32: PASS | cumulative_max_abs=0.000946522 | cumulative_max_rel=26449.7 | cumulative_failed=0/921600000 | elapsed=10.411s
+batch 10/32: PASS | cumulative_max_abs=0.000946522 | cumulative_max_rel=26449.7 | cumulative_failed=0/1024000000 | elapsed=9.974s
+batch 11/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=26449.7 | cumulative_failed=0/1126400000 | elapsed=10.412s
+batch 12/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=26449.7 | cumulative_failed=0/1228800000 | elapsed=9.973s
+batch 13/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/1331200000 | elapsed=10.413s
+batch 14/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/1433600000 | elapsed=9.973s
+batch 15/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/1536000000 | elapsed=10.412s
+batch 16/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/1638400000 | elapsed=9.975s
+batch 17/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/1740800000 | elapsed=10.412s
+batch 18/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/1843200000 | elapsed=9.974s
+batch 19/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/1945600000 | elapsed=10.412s
+batch 20/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/2048000000 | elapsed=9.974s
+batch 21/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/2150400000 | elapsed=10.412s
+batch 22/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/2252800000 | elapsed=9.975s
+batch 23/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/2355200000 | elapsed=10.411s
+batch 24/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=101297 | cumulative_failed=0/2457600000 | elapsed=9.974s
+batch 25/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=3.77773e+07 | cumulative_failed=0/2560000000 | elapsed=10.413s
+batch 26/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=3.77773e+07 | cumulative_failed=0/2662400000 | elapsed=9.974s
+batch 27/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=3.77773e+07 | cumulative_failed=0/2764800000 | elapsed=10.413s
+batch 28/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=8.65336e+07 | cumulative_failed=0/2867200000 | elapsed=9.974s
+batch 29/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=8.65336e+07 | cumulative_failed=0/2969600000 | elapsed=10.412s
+batch 30/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=8.65336e+07 | cumulative_failed=0/3072000000 | elapsed=9.973s
+batch 31/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=8.65336e+07 | cumulative_failed=0/3174400000 | elapsed=10.413s
+batch 32/32: PASS | cumulative_max_abs=0.000997305 | cumulative_max_rel=8.65336e+07 | cumulative_failed=0/3276800000 | elapsed=9.974s
+summary: PASS | max_abs=0.000997305 | max_rel=8.65336e+07 | mean_abs=0.000110411 | failed=0/3276800000 | elapsed_s=329.160 | peak_GiB=20.367

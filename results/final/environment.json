@@ -1,0 +1,58 @@
+{
+  "captured_at": "2026-08-31",
+  "source_revision": "4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+  "source_revision_verification": "declared-snapshot-with-file-sha256",
+  "environment_id": "rtx5090-sm120-driver595.71.05-torch2.11-cu128",
+  "execution_environment": {
+    "provider": "Vast.ai",
+    "container_os": "Ubuntu 24.04.4 LTS",
+    "kernel": "Linux 5.15.0-187-generic",
+    "workspace_is_persistent_volume": false
+  },
+  "cpu": {
+    "model": "AMD Ryzen 5 5600X 6-Core Processor",
+    "visible_logical_cpus": 12
+  },
+  "memory": {
+    "ram_bytes": 33564246016,
+    "workspace_overlay_size_bytes": 17179869184
+  },
+  "gpu": {
+    "model": "NVIDIA GeForce RTX 5090",
+    "count": 1,
+    "compute_capability": "12.0",
+    "visible_memory_mib": 32607,
+    "driver": "595.71.05",
+    "system_cuda_toolkit": "12.8"
+  },
+  "software": {
+    "python": "3.12.14",
+    "pytorch": "2.11.0+cu128",
+    "pytorch_cuda": "12.8",
+    "cudnn": "9.19.0",
+    "triton": "3.6.0"
+  },
+  "benchmark_policy": {
+    "device": "cuda:0",
+    "dtype": "float32",
+    "seed": 1234,
+    "matmul_precision": "high",
+    "allow_tf32": true,
+    "compile_baseline": false,
+    "compile_user": true,
+    "compile_mode": "max-autotune",
+    "accuracy_trials_shapes_1_13": 5,
+    "warmup_shapes_1_13": 20,
+    "repeats_shapes_1_13": 100,
+    "rounds_shapes_1_13": 3,
+    "shape14_query_chunk": 256,
+    "shape14_compare_token_chunk": 2048,
+    "shape14_warmup": 1,
+    "shape14_repeats": 5
+  },
+  "artifact_policy": {
+    "headline_run": "V16.1 start-control from full14-sweep-r1",
+    "drift_threshold": 0.03,
+    "historical_driver580_archive": "results/cross-host-driver580/"
+  }
+}

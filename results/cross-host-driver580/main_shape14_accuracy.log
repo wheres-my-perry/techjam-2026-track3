@@ -1,0 +1,214 @@
+shape=#14 B=32 S=100000 D=1024 H=16 L=2 FFN=1024 causal=True
+criterion: abs_error < 0.002 OR relative_error < 2%; query_chunk=256; batches=32; implementation=main; executor_batch=1; inner_compile=True
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Exception No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 196608 Hardware limit:101376 Reducing block sizes or `num_stages` may help. for benchmark choice TritonTemplateCaller(/tmp/torchinductor_root/fp/cfpbbbrwhbd3jg6gqyh6pxee6lqopcpzata6mzascefbmsh76x62.py, ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8)
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Traceback (most recent call last):
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     result = self.fn(*self.args, **self.kwargs)
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 3464, in precompile_with_captured_stdout
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     choice.precompile()
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 2388, in precompile
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self.bmreq.precompile()
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/autotune_process.py", line 714, in precompile
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     getattr(mod, self.kernel_name).precompile()
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 503, in precompile
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self._make_launchers()
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 664, in _make_launchers
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     raise RuntimeError(f"No valid triton configs. {type(exc).__name__}: {exc}")
+E0831 07:09:13.720000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] RuntimeError: No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 196608 Hardware limit:101376 Reducing block sizes or `num_stages` may help.
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Exception No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 147456 Hardware limit:101376 Reducing block sizes or `num_stages` may help. for benchmark choice TritonTemplateCaller(/tmp/torchinductor_root/zn/cznb7yskk53ks7la3lytejdgjyc57xg3eq3hsxio2x4wxnrlumaq.py, ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=4)
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Traceback (most recent call last):
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     result = self.fn(*self.args, **self.kwargs)
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 3464, in precompile_with_captured_stdout
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     choice.precompile()
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 2388, in precompile
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self.bmreq.precompile()
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/autotune_process.py", line 714, in precompile
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     getattr(mod, self.kernel_name).precompile()
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 503, in precompile
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self._make_launchers()
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 664, in _make_launchers
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     raise RuntimeError(f"No valid triton configs. {type(exc).__name__}: {exc}")
+E0831 07:09:13.722000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] RuntimeError: No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 147456 Hardware limit:101376 Reducing block sizes or `num_stages` may help.
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Exception No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help. for benchmark choice TritonTemplateCaller(/tmp/torchinductor_root/dd/cddyzria6elxgqjgjuqnfi5llqs4zc7umvg7n5x4ei7yprcpsysf.py, ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8)
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Traceback (most recent call last):
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     result = self.fn(*self.args, **self.kwargs)
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 3464, in precompile_with_captured_stdout
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     choice.precompile()
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 2388, in precompile
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self.bmreq.precompile()
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/autotune_process.py", line 714, in precompile
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     getattr(mod, self.kernel_name).precompile()
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 503, in precompile
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self._make_launchers()
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 664, in _make_launchers
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     raise RuntimeError(f"No valid triton configs. {type(exc).__name__}: {exc}")
+E0831 07:09:13.723000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] RuntimeError: No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Exception No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help. for benchmark choice TritonTemplateCaller(/tmp/torchinductor_root/mj/cmjuf4sb3uzdfnad3fivhg3zbwz7zhfojw5vuxmwol4726s2ms7w.py, ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4)
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Traceback (most recent call last):
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     result = self.fn(*self.args, **self.kwargs)
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 3464, in precompile_with_captured_stdout
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     choice.precompile()
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 2388, in precompile
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self.bmreq.precompile()
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/autotune_process.py", line 714, in precompile
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     getattr(mod, self.kernel_name).precompile()
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 503, in precompile
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self._make_launchers()
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 664, in _make_launchers
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     raise RuntimeError(f"No valid triton configs. {type(exc).__name__}: {exc}")
+E0831 07:09:13.724000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] RuntimeError: No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.
+/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py:3686: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  current_out_size = out_base.storage().size()
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 16, "best_kernel": "bias_addmm", "best_time": 2.9757440090179443, "best_triton_pos": 1, "best_triton_time": 3.2502079010009766, "best_triton_kernel": "triton_mm_16", "best_triton_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4"}
+AUTOTUNE addmm(100000x3072, 100000x1024, 1024x3072)
+strides: [0, 1], [1024, 1], [1, 1024]
+dtypes: torch.float16, torch.float16, torch.float16
+  bias_addmm 2.9757 ms 100.0% 
+  triton_mm_16 3.2502 ms 91.6% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_17 3.2789 ms 90.8% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_15 3.3383 ms 89.1% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=8
+  triton_mm_11 3.5021 ms 85.0% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  addmm 3.5529 ms 83.8% 
+  triton_mm_13 3.6593 ms 81.3% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_9 3.6690 ms 81.1% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_14 3.7151 ms 80.1% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_10 3.7438 ms 79.5% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+SingleProcess AUTOTUNE benchmarking takes 1.1222 seconds and 0.0063 seconds precompiling for 18 choices
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Exception No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help. for benchmark choice TritonTemplateCaller(/tmp/torchinductor_root/uk/cukhni7xernbwp5kongwhtkuiwbvqawhneychhgmylfbx3a7ejyr.py, ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4)
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] Traceback (most recent call last):
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     result = self.fn(*self.args, **self.kwargs)
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 3464, in precompile_with_captured_stdout
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     choice.precompile()
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py", line 2388, in precompile
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self.bmreq.precompile()
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/autotune_process.py", line 714, in precompile
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     getattr(mod, self.kernel_name).precompile()
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 503, in precompile
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     self._make_launchers()
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]   File "/venv/main/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 664, in _make_launchers
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0]     raise RuntimeError(f"No valid triton configs. {type(exc).__name__}: {exc}")
+E0831 07:09:14.849000 6130 site-packages/torch/_inductor/select_algorithm.py:3541] [0/0] RuntimeError: No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.
+E0831 07:09:15.405000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:15.405000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 147456 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:15.405000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:15.615000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:15.615000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:15.615000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:15.617000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:15.617000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 196608 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:15.617000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+Autotune Choices Stats:
+{"num_choices": 21, "num_triton_choices": 19, "best_kernel": "bias_addmm", "best_time": 1.0568000078201294, "best_triton_pos": 1, "best_triton_time": 1.0723520517349243, "best_triton_kernel": "triton_mm_36", "best_triton_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4"}
+AUTOTUNE addmm(100000x1024, 100000x1024, 1024x1024)
+strides: [0, 1], [1024, 1], [1, 1024]
+dtypes: torch.float16, torch.float16, torch.float16
+  bias_addmm 1.0568 ms 100.0% 
+  triton_mm_36 1.0724 ms 98.5% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_35 1.0864 ms 97.3% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=8
+  triton_mm_37 1.0886 ms 97.1% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_31 1.1500 ms 91.9% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_33 1.1948 ms 88.5% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_34 1.2134 ms 87.1% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_29 1.2462 ms 84.8% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_30 1.2462 ms 84.8% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  addmm 1.3292 ms 79.5% 
+SingleProcess AUTOTUNE benchmarking takes 0.7683 seconds and 0.0015 seconds precompiling for 21 choices
+E0831 07:09:16.045000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:16.045000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:16.045000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:16.165000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:16.165000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 147456 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:16.165000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:16.362000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:16.362000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:16.362000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:16.362000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:16.362000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 196608 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:16.362000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+Autotune Choices Stats:
+{"num_choices": 22, "num_triton_choices": 20, "best_kernel": "bias_addmm", "best_time": 1.030176043510437, "best_triton_pos": 1, "best_triton_time": 1.117184042930603, "best_triton_kernel": "triton_mm_57", "best_triton_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4"}
+AUTOTUNE addmm(100000x1024, 100000x1024, 1024x1024)
+strides: [0, 1], [1024, 1], [1, 1024]
+dtypes: torch.float16, torch.float16, torch.float16
+  bias_addmm 1.0302 ms 100.0% 
+  triton_mm_57 1.1172 ms 92.2% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_56 1.1312 ms 91.1% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_55 1.1551 ms 89.2% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=8
+  triton_mm_51 1.2069 ms 85.4% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_49 1.2623 ms 81.6% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_53 1.2729 ms 80.9% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_54 1.2890 ms 79.9% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_50 1.2892 ms 79.9% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  addmm 1.2955 ms 79.5% 
+SingleProcess AUTOTUNE benchmarking takes 0.7441 seconds and 0.0000 seconds precompiling for 22 choices
+E0831 07:09:17.008000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:17.008000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:17.008000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:17.166000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:17.166000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 147456 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:17.166000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:17.420000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:17.420000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 131072 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:17.420000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+E0831 07:09:17.421000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Runtime error during autotuning: 
+E0831 07:09:17.421000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] No valid triton configs. OutOfMemoryError: out of resource: triton_mm Required: 196608 Hardware limit:101376 Reducing block sizes or `num_stages` may help.. 
+E0831 07:09:17.421000 6130 site-packages/torch/_inductor/select_algorithm.py:3924] [0/0] Ignoring this choice.
+Autotune Choices Stats:
+{"num_choices": 22, "num_triton_choices": 20, "best_kernel": "bias_addmm", "best_time": 3.1498560905456543, "best_triton_pos": 1, "best_triton_time": 3.262495994567871, "best_triton_kernel": "triton_mm_76", "best_triton_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4"}
+AUTOTUNE addmm(100000x3072, 100000x1024, 1024x3072)
+strides: [0, 1], [1024, 1], [1, 1024]
+dtypes: torch.float16, torch.float16, torch.float16
+  bias_addmm 3.1499 ms 100.0% 
+  triton_mm_76 3.2625 ms 96.5% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_77 3.2850 ms 95.9% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_75 3.3506 ms 94.0% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=8
+  triton_mm_71 3.5380 ms 89.0% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_73 3.6619 ms 86.0% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_69 3.6782 ms 85.6% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_74 3.7268 ms 84.5% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_70 3.7561 ms 83.9% ACC_TYPE='tl.float32', ALLOW_TF32=True, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  addmm 3.8144 ms 82.6% 
+SingleProcess AUTOTUNE benchmarking takes 1.0587 seconds and 0.0000 seconds precompiling for 22 choices
+batch 01/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=5494.17 | cumulative_failed=0/102400000 | elapsed=10.122s
+batch 02/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=5494.17 | cumulative_failed=0/204800000 | elapsed=10.017s
+batch 03/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=8837.97 | cumulative_failed=0/307200000 | elapsed=10.240s
+batch 04/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=9409.48 | cumulative_failed=0/409600000 | elapsed=10.244s
+batch 05/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=9409.48 | cumulative_failed=0/512000000 | elapsed=10.248s
+batch 06/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=24915 | cumulative_failed=0/614400000 | elapsed=10.252s
+batch 07/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=24915 | cumulative_failed=0/716800000 | elapsed=10.256s
+batch 08/32: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=24915 | cumulative_failed=0/819200000 | elapsed=10.260s
+batch 09/32: PASS | cumulative_max_abs=0.000752866 | cumulative_max_rel=24915 | cumulative_failed=0/921600000 | elapsed=10.261s
+batch 10/32: PASS | cumulative_max_abs=0.000752866 | cumulative_max_rel=24915 | cumulative_failed=0/1024000000 | elapsed=10.264s
+batch 11/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=24915 | cumulative_failed=0/1126400000 | elapsed=10.265s
+batch 12/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=24915 | cumulative_failed=0/1228800000 | elapsed=10.264s
+batch 13/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=36029.1 | cumulative_failed=0/1331200000 | elapsed=10.264s
+batch 14/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=36029.1 | cumulative_failed=0/1433600000 | elapsed=10.265s
+batch 15/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=36029.1 | cumulative_failed=0/1536000000 | elapsed=10.264s
+batch 16/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=36029.1 | cumulative_failed=0/1638400000 | elapsed=10.264s
+batch 17/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=36029.1 | cumulative_failed=0/1740800000 | elapsed=10.264s
+batch 18/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=36029.1 | cumulative_failed=0/1843200000 | elapsed=10.265s
+batch 19/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=36029.1 | cumulative_failed=0/1945600000 | elapsed=10.265s
+batch 20/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=41996.1 | cumulative_failed=0/2048000000 | elapsed=10.265s
+batch 21/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=41996.1 | cumulative_failed=0/2150400000 | elapsed=10.265s
+batch 22/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=41996.1 | cumulative_failed=0/2252800000 | elapsed=10.265s
+batch 23/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=41996.1 | cumulative_failed=0/2355200000 | elapsed=10.266s
+batch 24/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=78543.7 | cumulative_failed=0/2457600000 | elapsed=10.264s
+batch 25/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=4.3162e+07 | cumulative_failed=0/2560000000 | elapsed=10.264s
+batch 26/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=4.3162e+07 | cumulative_failed=0/2662400000 | elapsed=10.262s
+batch 27/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=4.3162e+07 | cumulative_failed=0/2764800000 | elapsed=10.262s
+batch 28/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=1.51706e+08 | cumulative_failed=0/2867200000 | elapsed=10.263s
+batch 29/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=1.51706e+08 | cumulative_failed=0/2969600000 | elapsed=10.263s
+batch 30/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=1.51706e+08 | cumulative_failed=0/3072000000 | elapsed=10.264s
+batch 31/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=1.51706e+08 | cumulative_failed=0/3174400000 | elapsed=10.264s
+batch 32/32: PASS | cumulative_max_abs=0.000944197 | cumulative_max_rel=1.51706e+08 | cumulative_failed=0/3276800000 | elapsed=10.265s
+summary: PASS | max_abs=0.000944197 | max_rel=1.51706e+08 | mean_abs=6.56367e-05 | failed=0/3276800000 | elapsed_s=348.534 | peak_GiB=19.967

@@ -1,0 +1,3 @@
+checkpoint_id,checkpoint_label,strategy,b1_strict,streamed_b32_strict,native_b32,timing,failed,total,max_abs,max_rel,optimized_median_ms,optimized_mean_ms,optimized_p90_ms,throughput_tokens_per_s,peak_allocated_gib,reason
+baseline,PyTorch baseline,static_infeasible,INFEASIBLE_STATIC,SKIP,SKIP,SKIP,,,,,,,,,,explicit attention materializes an S-by-S score tensor
+v16_1,V16.1 standalone final,inner_executor,PASS,PASS,PASS,PASS,0,3276800000,0.0009441971778869629,151706320.0,6987.46435546875,6989.315234375,6994.09990234375,457962.98016111023,24.487462997436523,

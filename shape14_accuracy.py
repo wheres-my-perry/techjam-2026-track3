@@ -24,6 +24,13 @@ import torch.nn.functional as F
 
 import torch_transformer_benchmark as bench
 from v16_1_clean import UserOptimizedTransformer as V161Transformer
+from v19_CUDAFP16Checkpoint import UserOptimizedTransformer as V19Transformer
+from v19_1_0_ParallelBatchV161 import (
+    UserOptimizedTransformer as V1910Transformer,
+)
+from v19_1_1_ParallelBatchV19 import (
+    UserOptimizedTransformer as V1911Transformer,
+)
 
 
 SHAPE14 = bench.TransformerConfig(
@@ -41,6 +48,13 @@ IMPLEMENTATIONS = {
     "v16_1": V161Transformer,
     "v16.1.clean": V161Transformer,
     "v16_1_clean": V161Transformer,
+    "v19": V19Transformer,
+    "v19.cuda": V19Transformer,
+    "v19_cuda": V19Transformer,
+    "v19.1.0": V1910Transformer,
+    "v19_1_0": V1910Transformer,
+    "v19.1.1": V1911Transformer,
+    "v19_1_1": V1911Transformer,
 }
 
 
@@ -220,11 +234,16 @@ def main() -> int:
             enabled=not args.disable_inner_compile,
             mode=args.compile_mode,
         )
-    executor_batch = (
-        int(getattr(candidate, "_LARGE_SEQUENCE_BATCH_CHUNK", 1))
-        if hasattr(candidate, "forward_large_sequence_sample")
-        else 1
-    )
+    parallel_parts = int(getattr(candidate, "parallel_batch_parts", 1))
+    parallel_full_forward = parallel_parts > 1 and args.batch_limit > 1
+    if parallel_full_forward:
+        executor_batch = min(args.batch_limit, parallel_parts)
+    else:
+        executor_batch = (
+            int(getattr(candidate, "_LARGE_SEQUENCE_BATCH_CHUNK", 1))
+            if hasattr(candidate, "forward_large_sequence_sample")
+            else 1
+        )
 
     x, valid_mask = bench.generate_random_case(
         config=SHAPE14,
@@ -249,6 +268,8 @@ def main() -> int:
         f"query_chunk={args.query_chunk}; batches={args.batch_limit}; "
         f"implementation={args.impl}; "
         f"executor_batch={executor_batch}; "
+        f"parallel_parts={parallel_parts}; "
+        f"inner_mode={getattr(candidate, '_large_sequence_compile_mode', None)}; "
         f"inner_compile={not args.disable_inner_compile if hasattr(candidate, 'configure_large_sequence_executor') else False}",
         flush=True,
     )
@@ -256,7 +277,12 @@ def main() -> int:
     with torch.inference_mode():
         for group_start in range(0, args.batch_limit, executor_batch):
             group_end = min(group_start + executor_batch, args.batch_limit)
-            if hasattr(candidate, "forward_large_sequence_sample"):
+            if parallel_full_forward:
+                optimized_group = candidate(
+                    x[group_start:group_end],
+                    valid_mask[group_start:group_end],
+                )
+            elif hasattr(candidate, "forward_large_sequence_sample"):
                 optimized_group = candidate.forward_large_sequence_sample(
                     x[group_start:group_end],
                     valid_mask[group_start:group_end],

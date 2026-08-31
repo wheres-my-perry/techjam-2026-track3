@@ -1,0 +1,70 @@
+{
+  "status": "PASS",
+  "controls": [
+    {
+      "checkpoint_id": "v16_1",
+      "start_run_label": "v16_1__01",
+      "end_run_label": "v16_1__02",
+      "threshold": 0.03,
+      "metrics": {
+        "baseline_median_ms_geomean": {
+          "start": 3.510795379545758,
+          "end": 3.504953481055031,
+          "relative_drift": 0.0016639814797416719,
+          "pass": true
+        },
+        "optimized_median_ms_geomean": {
+          "start": 0.2974497927458999,
+          "end": 0.2960880757038635,
+          "relative_drift": 0.0045779727377375234,
+          "pass": true
+        }
+      },
+      "heavy_shapes": {
+        "6": {
+          "baseline_median_ms": {
+            "start": 177.3218,
+            "end": 177.3779,
+            "relative_drift": 0.000316373959659888,
+            "pass": true
+          },
+          "optimized_median_ms": {
+            "start": 25.1813,
+            "end": 25.2597,
+            "relative_drift": 0.0031134214675174743,
+            "pass": true
+          }
+        },
+        "8": {
+          "baseline_median_ms": {
+            "start": 6.6464,
+            "end": 6.6399,
+            "relative_drift": 0.0009779730380355955,
+            "pass": true
+          },
+          "optimized_median_ms": {
+            "start": 2.7936,
+            "end": 2.8227,
+            "relative_drift": 0.01041666666666674,
+            "pass": true
+          }
+        },
+        "13": {
+          "baseline_median_ms": {
+            "start": 41.8362,
+            "end": 41.8442,
+            "relative_drift": 0.00019122195610510317,
+            "pass": true
+          },
+          "optimized_median_ms": {
+            "start": 1.0793,
+            "end": 1.0744,
+            "relative_drift": 0.004539979616417944,
+            "pass": true
+          }
+        }
+      },
+      "status": "PASS"
+    }
+  ]
+}

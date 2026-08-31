@@ -1,0 +1,11 @@
+shape=#14 B=32 S=100000 D=1024 H=16 L=2 FFN=1024 causal=True
+criterion: abs_error < 0.002 OR relative_error < 2%; query_chunk=256; batches=8; implementation=v19.1.0; executor_batch=8; parallel_parts=8; inner_mode=max-autotune-no-cudagraphs; inner_compile=True
+batch 01/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=5494.11 | cumulative_failed=0/102400000 | elapsed=11.621s
+batch 02/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=5494.11 | cumulative_failed=0/204800000 | elapsed=9.974s
+batch 03/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=8837.97 | cumulative_failed=0/307200000 | elapsed=9.974s
+batch 04/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=9409.98 | cumulative_failed=0/409600000 | elapsed=9.975s
+batch 05/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=9409.98 | cumulative_failed=0/512000000 | elapsed=9.977s
+batch 06/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=24914.3 | cumulative_failed=0/614400000 | elapsed=9.976s
+batch 07/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=24914.3 | cumulative_failed=0/716800000 | elapsed=9.976s
+batch 08/8: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=24914.3 | cumulative_failed=0/819200000 | elapsed=9.977s
+summary: PASS | max_abs=0.000719786 | max_rel=24914.3 | mean_abs=6.56332e-05 | failed=0/819200000 | elapsed_s=86.017 | peak_GiB=22.709

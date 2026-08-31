@@ -1,0 +1,5 @@
+shape=#14 B=32 S=100000 D=1024 H=16 L=2 FFN=1024 causal=True
+criterion: abs_error < 0.002 OR relative_error < 2%; query_chunk=256; batches=2; implementation=v19.1.1; executor_batch=2; parallel_parts=2; inner_mode=max-autotune-no-cudagraphs; inner_compile=True
+batch 01/2: PASS | cumulative_max_abs=0.000893593 | cumulative_max_rel=9904.07 | cumulative_failed=0/102400000 | elapsed=10.356s
+batch 02/2: PASS | cumulative_max_abs=0.000893593 | cumulative_max_rel=9904.07 | cumulative_failed=0/204800000 | elapsed=9.971s
+summary: PASS | max_abs=0.000893593 | max_rel=9904.07 | mean_abs=0.000110397 | failed=0/204800000 | elapsed_s=23.841 | peak_GiB=20.367

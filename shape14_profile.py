@@ -32,6 +32,13 @@ from v16_1_clean import (
     FLASH_FIRST_BACKENDS,
     UserOptimizedTransformer as V161Transformer,
 )
+from v19_CUDAFP16Checkpoint import UserOptimizedTransformer as V19Transformer
+from v19_1_0_ParallelBatchV161 import (
+    UserOptimizedTransformer as V1910Transformer,
+)
+from v19_1_1_ParallelBatchV19 import (
+    UserOptimizedTransformer as V1911Transformer,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -42,6 +49,13 @@ IMPLEMENTATIONS = {
     "v16_1": (V161Transformer, ROOT / "v16_1_clean.py"),
     "v16.1.clean": (V161Transformer, ROOT / "v16_1_clean.py"),
     "v16_1_clean": (V161Transformer, ROOT / "v16_1_clean.py"),
+    "v19": (V19Transformer, ROOT / "v19_CUDAFP16Checkpoint.py"),
+    "v19.cuda": (V19Transformer, ROOT / "v19_CUDAFP16Checkpoint.py"),
+    "v19_cuda": (V19Transformer, ROOT / "v19_CUDAFP16Checkpoint.py"),
+    "v19.1.0": (V1910Transformer, ROOT / "v19_1_0_ParallelBatchV161.py"),
+    "v19_1_0": (V1910Transformer, ROOT / "v19_1_0_ParallelBatchV161.py"),
+    "v19.1.1": (V1911Transformer, ROOT / "v19_1_1_ParallelBatchV19.py"),
+    "v19_1_1": (V1911Transformer, ROOT / "v19_1_1_ParallelBatchV19.py"),
 }
 SDPA_BACKENDS = {
     "flash": SDPBackend.FLASH_ATTENTION,

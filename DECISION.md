@@ -1289,5 +1289,177 @@ và artifact submission không thể dùng độc lập ngoài repository.
 - Root chỉ còn một implementation version: `v16_1_clean.py`.
 - Historical commands cần dùng file trong `archive/versions/`; số liệu cũ vẫn
   giữ nguyên và không được gán thành benchmark mới của artifact clean.
-- CUDA/Triton equivalence và full official GPU matrix vẫn phải chạy trên GPU
-  mục tiêu trước final submission; local packaging tests không tạo speedup claim.
+- Tại thời điểm D-042, CUDA/Triton equivalence và full official GPU matrix vẫn
+  phải chạy trước final submission; D-043 bên dưới đóng gate này.
+
+## D-043 — Chốt standalone V16.1 làm artifact và evidence nộp cuối
+
+**Trạng thái:** Accepted; final official validation complete
+**Ngày:** 2026-08-31
+
+### Bối cảnh
+
+D-042 chỉ chứng minh equivalence local sau flatten. Để gán correctness và
+performance cho đúng artifact nộp, cần fresh GPU run trên `main.py →
+v16_1_clean.py`, không kế thừa số V4.3/V16 lịch sử.
+
+### Quyết định
+
+- Chốt commit `4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6` làm revision của final
+  evidence.
+- Dùng RTX 5090 `sm120`, PyTorch `2.11.0+cu128`, Triton `3.6.0`; #1–#13 chạy
+  strict accuracy năm trial và paired timing `20/100/3` với optimized
+  `max-autotune`.
+- Shape #14 chạy full streaming strict gate đủ `B=32`; performance chỉ báo
+  optimized-only vì original reference cần score khoảng `18.6 TiB`.
+- Check in curated raw JSON/CSV/log và environment manifest dưới
+  `results/final/`; không commit profiler dump lớn hoặc credential/endpoint.
+
+### Evidence
+
+- #1–#13 PASS toàn bộ, failed `0`, worst max abs `0.00179085`, geomean speedup
+  `7.904x`; per-shape range `2.489x–33.925x`.
+- #14 PASS `0/3,276,800,000`, max abs `0.000944197`, mean abs
+  `6.56367e-05`.
+- #14 optimized-only median `7213.5254 ms`, p90 `7252.4406 ms`, throughput
+  `443,611.11 token/s`, peak `24.487 GiB`; baseline/speedup N/A.
+
+### Hệ quả
+
+- Technical report được phép dùng final active-main numbers trên làm headline.
+- V4.3/V15/V16/V17 numbers chỉ còn là ablation/predecessor evidence.
+- Gate còn mở chỉ là robustness/portability nhiều seed, input scale, padding,
+  hardware và cold-start; chúng không phủ định official single-seed final run.
+
+## D-044 — Giữ V19 CUDA checkpointed-FP16 ngoài main cho tới GPU gate
+
+**Trạng thái:** Accepted for experimentation; V16.1 remains main
+**Ngày:** 2026-08-31
+
+### Bối cảnh
+
+Owner yêu cầu thử FP16 accumulation bằng kernel CUDA thật nhưng promote partial
+sum sang FP32 sau mỗi K=32, đồng thời chuẩn bị thêm các khoảng checkpoint để
+sweep. V5.1 trước đây bật full FP16 accumulation process-global, fail strict
+accuracy và không tạo paired speedup; V19 phải cô lập scope và accumulation
+policy thay vì lặp lại global flag.
+
+### Quyết định
+
+- Tạo `v19_CUDAFP16Checkpoint.py` trên standalone V16.1 và chỉ thay
+  `FFN-in -> exact GELU` bằng CUDA WMMA. Default checkpoint K=32; K=16/64/128
+  và FP32 control giữ cùng block/layout/epilogue.
+- Không bật `allow_fp16_accumulation`; QKV, attention, FFN-out,
+  residual/LayerNorm, cache/state dict và executor #14 giữ nguyên V16.1.
+- CUDA extension phải build trước `torch.compile`; lỗi build mặc định dừng run.
+  Fallback chỉ được bật explicit và timing đó không phải V19 evidence.
+- Không đổi `main.py` hoặc final evidence. V19 chỉ được cân nhắc sau strict
+  CUDA canaries, #1–#13, full #14 và paired V16.1/V19 trên GPU idle.
+
+### Evidence hiện tại
+
+- Local CPU PyTorch 2.12.1: state dict/fallback/branch tests, custom-op
+  `opcheck` và compile-eager smoke PASS.
+- Official-shape-#2 one-trial portable simulation PASS cho K=16/32/64/128 và
+  FP32 control; K=32 max abs `0.00108075`, failed `0/16,384`.
+- Chưa compile hoặc execute CUDA source; chưa có latency/speedup.
+
+### Hệ quả
+
+- V16.1 tiếp tục là stable artifact. V19 không được gán headline result hoặc
+  gọi là nhanh hơn trước khi có measured GPU evidence.
+- Sweep sau phải tách accuracy của checkpoint policy khỏi chất lượng schedule
+  CUDA bằng FP32 control cùng source; nếu control đã chậm V16.1, tối ưu tiling
+  trước khi kết luận accumulation policy không có lợi.
+
+## D-045 — Giữ V19.1 multi-stream scheduler ngoài main tới khi đóng memory gate
+
+**Trạng thái:** Accepted for experimentation; V16.1 remains main
+**Ngày:** 2026-08-31
+
+### Bối cảnh
+
+Outer loop shape #14 của V16.1 chạy 32 executor B=1 tuần tự. Batch samples độc
+lập nên có thể enqueue lên nhiều CUDA stream, nhưng concurrent intermediates có
+thể vượt memory và một compiled CUDA Graph không an toàn khi replay đồng thời
+với static buffers.
+
+### Quyết định
+
+- Tạo V19.1.0 từ V16.1 và V19.1.1 từ V19; cả hai chỉ ghép cùng outer scheduler,
+  không đổi arithmetic/state dict của parent.
+- Cho phép parts `1/2/4/8/16/32`, mặc định 2. Chia range liên tục cân bằng; mỗi
+  worker stream xử lý tuần tự các sample B=1 trong range.
+- Parts>1 bắt buộc inner Inductor mode `max-autotune-no-cudagraphs`. Stream cache
+  là runtime-only và bị xóa cùng executor cache sau load/move/config change.
+- `shape14_accuracy.py` phải gọi full candidate batch khi parts>1 và B>1 để
+  correctness gate thực sự đi qua outer scheduler, thay vì bypass bằng sample
+  helper.
+- Không đổi `main.py`. Tăng parts tuần tự trên GPU idle và dừng tại OOM/memory
+  headroom không an toàn; latency chỉ hợp lệ sau full strict #14 PASS.
+
+### Evidence hiện tại
+
+- Local planner cover B lẻ/chẵn cho mọi parts; parse/mode/state-dict và
+  CPU parent-equivalence mask/no-mask, training, BF16 đều PASS.
+- Official #2 one-trial smoke: V19.1.0 max abs `0.00084424`, V19.1.1 K=32
+  portable max abs `0.00108075`, cả hai failed `0/16,384`.
+- Chưa execute multi-stream path trên CUDA; CPU timing bị loại.
+
+### Hệ quả
+
+- Paired comparisons phải là V16.1↔V19.1.0 và V19↔V19.1.1, cùng
+  no-CUDA-Graph policy, seed, warmup/repeats và GPU idle.
+- Mỗi latency row phải kèm parts và peak allocation; theoretical overlap không
+  được ghi thành speedup đã đo.
+
+## D-046 — Promote driver-595 timeline sweep; giữ driver-580 làm cross-host archive
+
+**Trạng thái:** Accepted; reporting/evidence promotion, no implementation change
+**Ngày:** 2026-08-31
+
+### Bối cảnh
+
+Final evidence D-043 chỉ đo standalone V16.1 trên một host driver `580.159.03`.
+Để báo cáo tiến trình phát triển trên cùng environment, cần rerun đủ #1–#13 cho
+Baseline, V1, V2, V3.1 eager/compiled, V4.1, V4.2, V4.3, V8, V11 và V16.1.
+Host mới dùng cùng RTX 5090/PyTorch/CUDA stack nhưng driver `595.71.05`, CPU và
+RAM khác; vì vậy không được ghép latency hai host như một ablation code.
+
+### Quyết định
+
+- Promote V16.1 **start-control** của sweep driver-595 làm headline, không chọn
+  end-control hoặc reverse run có score đẹp nhất.
+- Chấp nhận sweep chỉ khi start/end baseline/optimized geomean và heavy shapes
+  #6/#8/#13 drift không quá 3%.
+- Mọi checkpoint chạy đủ #1–#13. V3.1 compiled strict FAIL phải giữ status và
+  không có timing; không bật `--benchmark-on-failure`.
+- Chạy reverse-order full matrices cho các aggregate difference dưới 3%.
+- Theo scope cuối của owner, shape #14 chỉ có Baseline static-infeasible và
+  V16.1 B1/streamed/native/timing; không report #14 cho checkpoint lịch sử.
+- Promote artifacts vào `results/final/` và
+  `results/timeline-rtx5090-driver595/`; giữ D-043 evidence nguyên vẹn trong
+  `results/cross-host-driver580/`.
+
+### Evidence
+
+- V16.1 start/end geomean `11.8030x` / `11.8383x`; baseline geomean drift
+  `0.166%`, optimized `0.458%`; max heavy-shape drift `1.042%`. Gate PASS.
+- Baseline, V1, V2, V3.1 eager, V4.1, V4.2, V4.3, V8, V11 và hai V16.1
+  controls PASS 13/13. V3.1 compiled fail 13/13, tổng `201,682` failed elements,
+  timing skipped.
+- Forward geomeans: `1.0011/1.0763/1.4353/2.1006/N/A/10.1999/10.4489/
+  11.6755/11.7854/11.7483/11.8030x` theo checkpoint order.
+- #14 V16.1 streamed strict PASS `0/3,276,800,000`, native B32 PASS; median
+  `6987.4644 ms`, p90 `6994.0999 ms`, throughput `457,962.98 token/s`, peak
+  `24.487 GiB`. Baseline latency/speedup N/A.
+
+### Hệ quả
+
+- Headline hiện tại là `11.803x` trên environment driver-595; V16.1 vẫn là main
+  và source revision không đổi.
+- Driver-595 baseline geomean chậm hơn driver-580 `72.48%`; optimized geomean
+  chậm hơn `15.51%`. Chênh `7.904x → 11.803x` là cross-host ratio effect, không
+  phải code improvement.
+- Mọi so sánh version trong timeline dùng cùng driver-595 host/protocol; số
+  D-043 chỉ dùng làm cross-host audit.

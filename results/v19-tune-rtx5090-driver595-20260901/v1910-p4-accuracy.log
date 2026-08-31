@@ -1,0 +1,7 @@
+shape=#14 B=32 S=100000 D=1024 H=16 L=2 FFN=1024 causal=True
+criterion: abs_error < 0.002 OR relative_error < 2%; query_chunk=256; batches=4; implementation=v19.1.0; executor_batch=4; parallel_parts=4; inner_mode=max-autotune-no-cudagraphs; inner_compile=True
+batch 01/4: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=5494.11 | cumulative_failed=0/102400000 | elapsed=10.760s
+batch 02/4: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=5494.11 | cumulative_failed=0/204800000 | elapsed=9.976s
+batch 03/4: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=8837.97 | cumulative_failed=0/307200000 | elapsed=9.974s
+batch 04/4: PASS | cumulative_max_abs=0.000719786 | cumulative_max_rel=9409.98 | cumulative_failed=0/409600000 | elapsed=9.976s
+summary: PASS | max_abs=0.000719786 | max_rel=9409.98 | mean_abs=6.56305e-05 | failed=0/409600000 | elapsed_s=45.244 | peak_GiB=21.147

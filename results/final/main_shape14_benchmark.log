@@ -1,0 +1,7 @@
+repeat 01/5: 6987.4644 ms
+repeat 02/5: 6983.9238 ms
+repeat 03/5: 6987.4033 ms
+repeat 04/5: 6992.8545 ms
+repeat 05/5: 6994.9302 ms
+SHAPE14_STAGE_JSON={"allow_tf32": true, "baseline_latency_ms": null, "checkpoint_id": "v16_1", "checkpoint_label": "V16.1 standalone final", "compile_mode": "max-autotune", "inner_executor": true, "matmul_precision": "high", "optimized_mean_ms": 6989.315234375, "optimized_median_ms": 6987.46435546875, "optimized_min_ms": 6983.923828125, "optimized_p90_ms": 6994.09990234375, "outer_compile": false, "output_dtype": "torch.float32", "output_shape": [32, 100000, 1024], "peak_allocated_gib": 24.487462997436523, "repeats": 5, "resolved_module": "_timeline_v16_1_30615", "samples_ms": [6987.46435546875, 6983.923828125, 6987.4033203125, 6992.8544921875, 6994.93017578125], "seed": 1234, "shape": {"batch_size": 32, "causal": true, "d_model": 1024, "ffn_dim": 1024, "heads": 16, "layers": 2, "seq_len": 100000}, "shape_id": 14, "speedup": null, "stage": "native-timing", "status": "PASS", "strategy": "inner_executor", "throughput_tokens_per_s": 457962.98016111023, "warmup": 1}
+

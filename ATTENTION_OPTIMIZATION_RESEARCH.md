@@ -9,24 +9,35 @@
 
 Report liệt kê **137 entry implementation/pattern** trong 8 catalogue; một số thư viện xuất hiện ở nhiều catalogue vì có cả attention, GEMM, quantization và runtime components.
 
-Các hướng đáng tấn công nhất, theo thứ tự lợi ích/kỳ vọng so với công sức, là:
+Sau follow-up đã đo trên RTX 5090, trạng thái và thứ tự ưu tiên hiện tại là:
 
-1. **Exact backend shoot-out trên SM120**: so trực tiếp PyTorch SDPA/cuDNN, [FlashAttention-4 CuTeDSL](https://github.com/Dao-AILab/flash-attention), và [FlashInfer `fmha_v2_prefill_sm120`](https://docs.flashinfer.ai/api/attention.html). Transformer Engine hiện ưu tiên cuDNN trước FlashAttention trên `sm100/sm120`, nên không nên mặc định rằng package có tên “FlashAttention-4” sẽ nhanh nhất.
-2. **Shape #14: microbatch theo batch, chạy xuyên toàn bộ layer**. Đây là biến đổi exact vì các sample độc lập. Nó tránh materialize QKV cho toàn bộ `B=32`, nhưng vẫn giữ output đúng `[32, 100000, 1024]`.
-3. **Fuse LayerNorm + QKV projection + layout**. Nguồn nên đào đầu tiên là [Transformer Engine `LayerNormLinear`](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/pytorch.html), [CUTLASS epilogue permutation](https://github.com/NVIDIA/cutlass), và [FlashAttention MHA/FusedDense](https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py).
-4. **FFN exact-accuracy path**: thử [cuBLASLt `GELU_BIAS` epilogue](https://docs.nvidia.com/cuda/cublas/index.html), Transformer Engine `LayerNormMLP`, CUTLASS back-to-back GEMM, và custom Triton hiện có. Mọi GELU fused/approximate phải qua accuracy gate vì repository đã cho thấy ranh giới sai số nằm ngay trước GELU.
-5. **SageAttention2/2++ như nhánh high-upside**. [SageAttention](https://github.com/thu-ml/SageAttention) có code RTX 5090 và INT8 QK với smoothing. Bắt đầu bằng `QK INT8 + PV FP16`, không bắt đầu bằng FP4. Kết quả kernel 560 TOPS/2.7x của tác giả loại trừ chi phí quantization và smoothing, nên chỉ end-to-end timing mới có giá trị.
-6. **Shape-specialized router**, không dùng một implementation cho tất cả: `S=32` và `B=1` cần giảm launch overhead; `B=10000` và `D=1024` thiên về GEMM/FFN; `S=1024` và đặc biệt `S=100000` thiên về attention/IO/memory.
-7. **Custom SM120 kernel chỉ sau khi thư viện sẵn có đã được đo**. Các codebase tốt để đào ý tưởng là CUTLASS example 79, Triton fused attention, TileLang, ThunderKittens và FlashInfer. Cần nhớ `sm100` datacenter Blackwell và `sm120` GeForce Blackwell không phải cùng một target kernel.
+1. **Giữ PyTorch Flash + whole-model batch microchunk làm control đã ship.**
+   Path này đã PASS full #1–#14 và làm shape #14 executable trên 32 GiB.
+2. **Probe exact FlashInfer SM120 trước.** Đây là exact vendor/library backend
+   quan trọng duy nhất trong shortlist chưa chạy trên exact #13/#14 workload;
+   mọi adapter và layout copy phải nằm trong timing.
+3. **Fuse LayerNorm + QKV projection + backend-native layout**, đồng thời thử
+   separate/no-concat QKV activation cho #14. Nguồn chính là Transformer Engine
+   `LayerNormLinear`, CUTLASS epilogue permutation và FlashInfer separate Q/K/V.
+4. **Xây accuracy-aware workload router.** Direct-layout QKV đã có measured
+   upside trên #6/#13, nhưng route mới phải dùng predicate theo workload/GPU,
+   không hard-code official test ID.
+5. **Mở rộng robustness và portability** qua nhiều seed/input scale/padding,
+   backend logging, compile cold-start và GPU/software stack thứ hai.
+6. **Để exact FFN/small-shape kernel sau bottleneck chính.** cuBLASLt/TE/CUTLASS
+   và `Dh=8`/`D=32` specialization chỉ bắt đầu sau profile đúng target shape.
+7. **Giữ low precision ở nhánh high-risk/deferred.** Current SageAttention có
+   isolated upside nhưng fail strict model gate; chỉ recipe mới có protection
+   cho outlier/precision boundary mới đáng accuracy-only probe lại.
+8. **Chỉ viết custom SM120 attention khi library path chạm trần.** Khi đó mới
+   cân nhắc online softmax, causal triangular load balancing, Triton, CUTLASS,
+   TileLang hoặc ThunderKittens. `sm100` datacenter Blackwell và `sm120` GeForce
+   Blackwell không phải cùng một target kernel.
 
-**Cập nhật sau thực nghiệm:** mục 1/5 đã được thử trên RTX 5090. PyTorch Flash
-thắng cuDNN, Efficient và FA4 b28 ở exact #14 attention/inner workload.
-Sage PV-FP16 nhanh isolated nhưng V18 fail strict full-model B=1 đúng một
-outlier; backend main vẫn là PyTorch Flash. D-038 sau đó đổi wrapper chính từ
-V16 sang source-clean V16.1 mà không đổi attention backend. Chi tiết và ranh giới
-claim nằm ở §18.3, `EXPERIMENTS.md` §17–18 và D-034. Corrected V17-Sage sau đó
-fail official #6/#9. V18-Sage direct automatic chỉ là performance-only probe,
-không thay kết luận accuracy/main.
+PyTorch Flash đã thắng cuDNN, Efficient và FA4 b28 ở exact shape-#14
+attention/inner workload. Sage PV-FP16 nhanh isolated nhưng fail strict
+full-model; exact-prefix correction tiếp tục fail official #6/#9. Chi tiết và
+ranh giới claim nằm ở §18.3, `EXPERIMENTS.md` §17–18 và D-034/D-040.
 
 Các hướng không nên ưu tiên cho điểm thi hiện tại:
 
@@ -146,40 +157,47 @@ Thứ tự fallback exact:
 4. Query-chunk streaming với K/V resident và online softmax. Đây là custom E1, phức tạp hơn nhiều vì QK/PV vẫn phải quét toàn causal K/V.
 5. CPU offload chỉ cho validator/reference hoặc khi luật/harness chính thức cho phép; không nên đưa PCIe transfer vào timed optimized forward.
 
-## 5. Shortlist hành động
+## 5. Shortlist hành động sau follow-up RTX 5090
 
-| Ưu tiên | Phương án | Điểm nổi bật | Fit | Rủi ro chính | Thử trên |
-|---:|---|---|:---:|---|---|
-| P0 | cuDNN FusedAttention qua SDPA/TE | Exact, NVIDIA selector ưu tiên trên SM120 | E0 | Backend thực tế có thể thay theo version/layout | #1,#2,#8,#11,#13,#14 chunk |
-| P0 | FlashInfer `fmha_v2_prefill_sm120` | API SM120 riêng, separate Q/K/V | E0/E1 | Adapter và layout cost | #13, #14 chunk |
-| P0 | FlashAttention-4 CuTeDSL | Code chính chủ, causal, có path SM120 | E0/E1 | Path SM120 dùng SM80 MMA; package beta/issue integration | #13 trước, rồi #14 |
-| P0 | Whole-model batch microchunk | Exact và giải quyết peak memory #14 | E0 | Loop/launch overhead; cần output preallocation | #14 |
-| P0 | TE `LayerNormLinear` cho norm1+QKV | Giảm read/write và kernel launch | E0/E1 | Phải map weight/eps/order chính xác | #1–#13 |
-| P0 | cuBLASLt bias+GELU epilogue | Thư viện vendor, tránh intermediate pre-GELU | E1 | GELU/accumulation có thể rớt strict error | #6,#8,#13 |
-| P0 | SageAttention2 `QK INT8 + PV FP16` | High upside, smoothing, hỗ trợ RTX 5090 | Q | Accuracy random-weight strict; quant overhead | #1,#8,#13 accuracy-only trước |
-| P1 | TE `LayerNormMLP` / op fuser | Fuses norm+MLP; giảm memory traffic | E0/E1 | Activation exactness và state_dict mapping | #6,#8,#13 |
-| P1 | CUTLASS SM120 example 79 + epilogue | Native RTX50 kernels, persistent schedule | E1/Q | Công sức C++/extension cao | GEMM microbench đúng M/N/K |
-| P1 | Triton fused attention specialization | Toàn quyền BLOCK_M/N, stages, warps | E1 | Dễ chậm hơn cuDNN/FA, cần autotune từng Dh | #7,#11,#13 |
-| P1 | CUDA Graph/fullgraph | Giảm launch overhead | E0 | Tăng memory, static-shape, graph breaks | #2,#7,#12 |
-| P1 | xFormers memory-efficient attention | Exact, nhiều backend, good cross-check | E0 | Có thể chỉ dispatch lại FA/CUTLASS, không nhanh hơn | #13 |
-| P2 | ThunderKittens / TileLang | Ý tưởng kernel độc lạ, tile primitives, warp specialization | E1 | Port/compile/debug lớn | #7 hoặc #13 prototype |
-| P2 | SpargeAttn/Sage sparse | Training-free dynamic skipping | Q/A | Random QK có thể không sparse; strict comparator | Chỉ accuracy diagnostic |
-| P3 | Linear/sparse architectures | O(S) hoặc block sparse cho #14 | A | Đổi semantics/retrain | Report/innovation demo, không submit chính |
+Các nhãn dưới đây phản ánh **trạng thái hiện tại**, không phải mức hấp dẫn lý
+thuyết lúc bắt đầu research:
+
+- `SHIPPED`: thuộc standalone final và đã qua official gate.
+- `NEXT`: candidate chưa đo quan trọng nhất, có experiment gate cụ thể.
+- `DEFERRED`: chỉ mở lại sau khi candidate ưu tiên hơn hoặc blocker hiện tại được
+  giải quyết.
+- `REJECTED`: đã có evidence chặn promotion theo correctness hoặc end-to-end
+  performance; không rerun nếu không có thay đổi bản chất.
+
+| Status | Candidate | Evidence / reason | Next gate |
+|---|---|---|---|
+| `SHIPPED` | PyTorch Flash + whole-model batch microchunk | Full #1–#14 strict PASS; #14 native B32 chạy trong 32 GiB | Giữ làm control cho mọi candidate |
+| `NEXT` | FlashInfer `fmha_v2_prefill_sm120` | Exact SM120 backend quan trọng duy nhất trong shortlist chưa probe | #13 → #14 B1; tính toàn bộ adapter/layout cost trong timing |
+| `NEXT` | `LayerNorm → QKV → backend-native layout` | Giảm launch/read-write và có thể bỏ `permute/contiguous`; đặc biệt hữu ích khi nối với FlashInfer | Gate state dict, epsilon/math order, rồi whole-layer #6/#8/#13/#14 B1 |
+| `NEXT` | Separate/no-concat QKV activation cho #14 | Packed weight vẫn hữu ích nhưng packed activation full batch tạo áp lực 18.311 GiB | Đo peak memory và latency cùng exact attention backend |
+| `NEXT` | Accuracy-aware workload router | Direct-layout QKV đã thắng #6 khoảng `3.43%` và #13 `0.98–2.20%`, nhưng force-all không thắng | Predicate theo workload/GPU, full matrix, reverse order, aggregate gate |
+| `NEXT` | Robustness và portability gate | Final mới khóa một seed và một RTX 5090 software stack | Multi-seed/scale/padding, backend log, cold start, GPU/software thứ hai |
+| `DEFERRED` | cuBLASLt/TE/CUTLASS exact FFN và kernel `Dh=8`/`D=32` | Có fit cho #6/#8 hoặc #7/#11 nhưng không phải bottleneck #14 | Chỉ bắt đầu sau profile mới trên target shape |
+| `DEFERRED` | Protected SageAttention2++ precision island | Current Sage recipe có isolated upside nhưng fail strict full model | Recipe mới phải PASS accuracy-only #1/#8/#13 trước timing |
+| `DEFERRED` | Larger chunks hoặc multi-stream #14 | B=2 chỉ nhanh hơn `0.30–0.59%`; attention vẫn chiếm `92.258%` | Chỉ mở lại khi profiler chứng minh launch gap hoặc memory headroom mới |
+| `REJECTED` | cuDNN, Efficient và FlashAttention-4 cho exact #14 inner path | cuDNN chậm `2.38–2.92%`, Efficient gần `2x`, FA4 chậm `7.72%` so PyTorch Flash | Chỉ reconsider trên hardware/software khác hoặc implementation đổi bản chất |
+| `REJECTED` | Current Sage automatic/corrected recipes | Automatic quantization fail mạnh; corrected full matrix vẫn fail #6/#9 | Không có performance claim hoặc promotion |
+| `REJECTED` | Sparse/linear/low-rank submission path | Thay dense attention semantics hoặc cần retrain | Chỉ giữ làm research ngoài submission |
 
 ## 6. Catalogue A — exact attention kernels và runtime
 
 | Implementation | Code/nguồn | Điểm nổi bật | Memory/precision | Đánh giá cho repo |
 |---|---|---|---|---|
 | PyTorch SDPA | [API](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html) | Một API dispatch Flash, memory-efficient hoặc math backend; dễ ép backend để benchmark công bằng | Flash path không materialize S² | **E0, đã dùng**; cần log backend thật thay vì chỉ nhìn API |
-| cuDNN FusedAttention | [cuDNN Attention](https://docs.nvidia.com/deeplearning/cudnn/v1.13.0/operations/Attention.html) | SDPA flash-based, causal/padding/ragged/GQA, vendor-tuned | FP16/BF16; có FP8 path trên một số GPU | **E0, P0** trên SM120 |
+| cuDNN FusedAttention | [cuDNN Attention](https://docs.nvidia.com/deeplearning/cudnn/v1.13.0/operations/Attention.html) | SDPA flash-based, causal/padding/ragged/GQA, vendor-tuned | FP16/BF16; có FP8 path trên một số GPU | **E0, measured control**; exact #14 inner chậm `2.38–2.92%` so PyTorch Flash |
 | Transformer Engine DotProductAttention | [Docs](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/attention/attention.html) | Backend selector và debug flags; ưu tiên cuDNN trên Blackwell | Có layout `bshd/sbhd/thd`, precision policy | **E0**; dùng như harness so backend, không nhất thiết thay toàn model |
 | FlashAttention 1 | [Code/paper](https://github.com/Dao-AILab/flash-attention) | IO-aware tiled exact attention, online softmax | O(S) activation memory thay O(S²) | Nền tảng thuật toán; FA2/4 phù hợp hơn |
 | FlashAttention 2 | [Code/paper](https://github.com/Dao-AILab/flash-attention) | Giảm non-matmul FLOP, partition tốt hơn theo sequence/head | FP16/BF16, head dim tới 256 | **E0**; current SDPA Flash có thể tương đương |
 | FlashAttention 3 | [Paper/code](https://github.com/Dao-AILab/flash-attention/tree/main/hopper) | Warp specialization, TMA, overlap Tensor Core/softmax, FP8 incoherent processing | Hopper H100/H800 | **Không target SM120**; chỉ học scheduling |
-| FlashAttention 4 CuTeDSL | [Code](https://github.com/Dao-AILab/flash-attention/tree/main/flash_attn/cute) | Một codebase CuTeDSL cho SM80/90/100/120, causal/local/block sparse | FP16/BF16 trên SM120; FP8 FA4 chỉ SM100 theo interface hiện tại | **E0/E1, P0** nhưng phải pin version và test issues |
-| FlashInfer FMHA v2 | [Attention API](https://docs.flashinfer.ai/api/attention.html) | Có `fmha_v2_prefill_sm120`, separate contiguous Q/K/V, task-scheduled primitives | Prefill exact; nhiều layout/KV wrapper | **E0/E1, P0** cho #13/#14 |
-| xFormers memory-efficient attention | [Code](https://github.com/facebookresearch/xformers) | Exact MEA với CUTLASS/Flash backends, attention bias abstractions | O(S) extra memory | **E0, P1**; backend cross-check; old Triton op đã bị bỏ vì correctness/perf |
-| Triton fused attention tutorial | [Kernel](https://github.com/triton-lang/triton/blob/main/python/tutorials/06-fused-attention.py) | FA2-style kernel dễ sửa BLOCK_M/N, stages, warp specialization | FP16, FP8 sample, FP32 softmax state | **E1, P1**; base tốt cho specialization `Dh=8/32/64/128/256` |
+| FlashAttention 4 CuTeDSL | [Code](https://github.com/Dao-AILab/flash-attention/tree/main/flash_attn/cute) | Một codebase CuTeDSL cho SM80/90/100/120, causal/local/block sparse | FP16/BF16 trên SM120; FP8 FA4 chỉ SM100 theo interface hiện tại | **E0/E1, measured reject**; exact #14 attention chậm `7.72%` so PyTorch Flash |
+| FlashInfer FMHA v2 | [Attention API](https://docs.flashinfer.ai/api/attention.html) | Có `fmha_v2_prefill_sm120`, separate contiguous Q/K/V, task-scheduled primitives | Prefill exact; nhiều layout/KV wrapper | **E0/E1, NEXT** cho #13/#14 |
+| xFormers memory-efficient attention | [Code](https://github.com/facebookresearch/xformers) | Exact MEA với CUTLASS/Flash backends, attention bias abstractions | O(S) extra memory | **E0, DEFERRED** cross-check; có thể chỉ dispatch lại FA/CUTLASS |
+| Triton fused attention tutorial | [Kernel](https://github.com/triton-lang/triton/blob/main/python/tutorials/06-fused-attention.py) | FA2-style kernel dễ sửa BLOCK_M/N, stages, warp specialization | FP16, FP8 sample, FP32 softmax state | **E1, DEFERRED**; chỉ custom khi library path chạm trần |
 | CUTLASS FMHA/Grouped GEMM MHA | [CUTLASS](https://github.com/NVIDIA/cutlass) | CuTe layouts, grouped GEMM MHA, epilogue visitors | Vendor primitives, nhiều dtype | **E1**; code mine tốt, integration cao |
 | TensorRT-LLM Context FMHA | [Attention docs](https://nvidia.github.io/TensorRT-LLM/1.2.0/features/attention.html) | Fused context MHA; packed tokens; separate backend for context/decode | Flash algorithm, no S² score | **E1/D**; adapter engine nặng, nhưng ý tưởng no-padding/no-concat rất hữu ích |
 | ONNX Runtime fused attention | [CUDA kernel map](https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/contrib_ops/cuda/bert) | Fused MHA, CUTLASS memory-efficient and Flash kernels, graph rewrites | FP16 Flash; FP32 memory-efficient path | **E1**; code mine/cross-check, không ưu tiên engine conversion |
@@ -200,12 +218,12 @@ Thứ tự fallback exact:
 |---|---|---|---|
 | Single packed QKV GEMM | [FlashAttention MHA](https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py) | Ghép `Wq,Wk,Wv` thành `[D,3D]`, một GEMM thay ba GEMM/launch | **E0, đã có từ V1**; vẫn cần tối ưu output layout |
 | FlashAttention `FusedDense` | [Source](https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py) | Fused matmul+bias; implementation tham khảo cho QKV/out projection | **E1**; code chủ yếu train/A100-era, đo lại trên SM120 |
-| Transformer Engine `LayerNormLinear` | [API](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/pytorch.html) | LayerNorm rồi Linear trong module fused; có thể trả LN output cho residual | **E0/E1, P0**; map epsilon, affine params và dtype chính xác |
+| Transformer Engine `LayerNormLinear` | [API](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/pytorch.html) | LayerNorm rồi Linear trong module fused; có thể trả LN output cho residual | **E0/E1, NEXT**; map epsilon, affine params và dtype chính xác |
 | Transformer Engine fused QKV params | [Transformer source](https://github.com/NVIDIA/TransformerEngine/blob/main/transformer_engine/pytorch/transformer.py) | `fuse_qkv_params`, QKV layout/interleaving và TE attention tích hợp | **E1**; tham khảo cách tổ chức weight/state_dict |
-| CUTLASS GEMM epilogue permutation | [Changelog](https://github.com/NVIDIA/cutlass/blob/main/CHANGELOG.md) | GEMM store thẳng vào layout attention cần, bỏ transpose/contiguous kernel | **E1, P1**; rất hợp packed QKV → `[B,S,3,H,Dh]` |
+| CUTLASS GEMM epilogue permutation | [Changelog](https://github.com/NVIDIA/cutlass/blob/main/CHANGELOG.md) | GEMM store thẳng vào layout attention cần, bỏ transpose/contiguous kernel | **E1, NEXT**; rất hợp packed QKV → `[B,S,3,H,Dh]` |
 | AITemplate memory fusion | [Code](https://github.com/facebookincubator/AITemplate) | Fuse GEMM với concat/split/slice/layout operation | **E1**; cùng mục tiêu với no-copy QKV |
 | TensorRT-LLM separate Q/K/V input | [Optimization write-up](https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/blogs/tech_blog/blog14_Scaling_Expert_Parallelism_in_TensorRT-LLM_part3.md) | Tránh concat Q/K/V khi kernel nhận riêng ba tensor | **E0/E1**; đặc biệt đáng giá #14 khi packed QKV tăng peak memory |
-| FlashInfer separate SM120 Q/K/V | [API](https://docs.flashinfer.ai/api/attention.html) | `fmha_v2_prefill_sm120(query,key,value,...)` nhận Q/K/V contiguous riêng | **E0/E1, P0** cho nhánh no-concat |
+| FlashInfer separate SM120 Q/K/V | [API](https://docs.flashinfer.ai/api/attention.html) | `fmha_v2_prefill_sm120(query,key,value,...)` nhận Q/K/V contiguous riêng | **E0/E1, NEXT** cho nhánh no-concat |
 | FlashAttention packed API | [README](https://github.com/Dao-AILab/flash-attention) | `flash_attn_qkvpacked_func` tránh một số concat/copy ở training | **E0**; inference cần đo packed so với separate API |
 | Remove padding / packed tokens | [FasterTransformer BERT](https://github.com/NVIDIA/FasterTransformer/blob/main/docs/bert_guide.md) | Gom valid token, attention dùng offsets, scatter output trở lại | **E0/E1** nếu mask có padding; overhead có thể thua khi tất cả token valid |
 | ByteTransformer padding-free | [Code](https://github.com/bytedance/ByteTransformer) | Tối ưu toàn encoder quanh variable-length packed input | **E1**; source tốt cho mask path |
@@ -225,19 +243,19 @@ Thứ tự fallback exact:
 
 | Implementation | Code/nguồn | Điểm nổi bật | Precision/caveat | Đánh giá |
 |---|---|---|---|---|
-| cuBLASLt epilogue | [Docs](https://docs.nvidia.com/cuda/cublas/index.html) | `BIAS`, `GELU`, `GELU_BIAS`, aux output trong GEMM epilogue | GELU/compute order phải so strict comparator | **E1, P0** cho FC1+bias+GELU |
+| cuBLASLt epilogue | [Docs](https://docs.nvidia.com/cuda/cublas/index.html) | `BIAS`, `GELU`, `GELU_BIAS`, aux output trong GEMM epilogue | GELU/compute order phải so strict comparator | **E1, DEFERRED** exact FFN candidate cho #6/#8 |
 | FlashAttention fused dense/MLP | [Source](https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py) | Matmul+bias+GELU và hai-layer MLP wrapper | `FusedMLP` dùng `gelu_approx`; source ghi Hopper fused path có thể chậm hơn unfused | **E1/Q**; học heuristic, không copy mù |
-| Transformer Engine `LayerNormMLP` | [API](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/pytorch.html) | Fuses norm + MLP module, giảm launch/memory traffic | TE thường thiên low precision/GLU; kiểm tra exact GELU | **E0/E1, P1** |
+| Transformer Engine `LayerNormMLP` | [API](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/pytorch.html) | Fuses norm + MLP module, giảm launch/memory traffic | TE thường thiên low precision/GLU; kiểm tra exact GELU | **E0/E1, DEFERRED** |
 | Transformer Engine op fuser | [Docs](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/op_fuser/op_fuser.html) | Compose LayerNorm/Linear/activation/Linear rồi fuser nhận pattern | Có thể thử chỉ inference, static shapes | **E1** |
 | CUTLASS GEMM→LayerNorm→GEMM | [Example 37](https://github.com/NVIDIA/cutlass/tree/main/examples/37_gemm_layernorm_gemm_fusion) | Split/fuse LayerNorm vào GEMM trước và sau; Shift-K cho variance numerical | Example cũ target Ampere; concept port lên SM120 | **E1, ý tưởng mạnh** |
 | CUTLASS back-to-back GEMM | [CUTLASS](https://github.com/NVIDIA/cutlass) | Giữ intermediate giữa hai GEMM gần compute, giảm HBM | GELU giữa GEMM làm fusion phức tạp | **E1** |
 | CUTLASS EVT/epilogue visitor | [CUTLASS examples](https://github.com/NVIDIA/cutlass/tree/main/examples) | Chain bias, activation, residual, scale trong epilogue | SM100 examples không tự động chạy SM120 | **E1** |
-| CUTLASS SM120 example 79 | [Code](https://github.com/NVIDIA/cutlass/tree/main/examples/79_blackwell_geforce_gemm) | Persistent warp-specialized schedule, cluster launch control, block-scaled MMA cho RTX50 | Nhiều sample là NVFP4/MXFP8, không phải FP16 exact | **E1/Q, P1**; mine scheduler/epilogue |
+| CUTLASS SM120 example 79 | [Code](https://github.com/NVIDIA/cutlass/tree/main/examples/79_blackwell_geforce_gemm) | Persistent warp-specialized schedule, cluster launch control, block-scaled MMA cho RTX50 | Nhiều sample là NVFP4/MXFP8, không phải FP16 exact | **E1/Q, DEFERRED**; mine scheduler/epilogue |
 | cuDNN Frontend FROST | [Code](https://github.com/NVIDIA/cudnn-frontend) | JIT Blackwell matmul/grouped matmul + chained pointwise epilogues | README nhấn B200/GB200; xác nhận SM120 trước | **E1**; thử như candidate, không giả định support |
 | DeepGEMM | [Code](https://github.com/deepseek-ai/DeepGEMM) | JIT persistent GEMM, TMA/warp specialization, fine-grained scaling, fused ops | Chủ lực FP8/FP4 và SM90/SM100; SM120 không chắc | **E1/Q**; học scheduling hơn là drop-in |
 | tiny-cuda-nn FullyFusedMLP | [Code](https://github.com/NVlabs/tiny-cuda-nn) | Giữ small MLP trong shared/register; JIT whole-kernel fusion | Hidden width chỉ 16/32/64/128 cho FullyFusedMLP; activation không khớp GELU mặc định | **E1/A**; rất đáng học cho #7/D=32 và D=128 |
 | Triton matmul tutorial | [Code](https://triton-lang.org/main/getting-started/tutorials/03-matrix-multiplication.html) | Grouped program ordering tăng L2 reuse, autotune block sizes | Custom GEMM thường khó thắng cuBLAS ở shape lớn | **E1**; dùng cho fusion/small shape |
-| Triton persistent matmul | [Code](https://triton-lang.org/main/getting-started/tutorials/09-persistent-matmul.html) | Persistent scheduling giảm launch/tile scheduling overhead | Cần tune per architecture | **E1, P1** cho #7 hoặc #6 |
+| Triton persistent matmul | [Code](https://triton-lang.org/main/getting-started/tutorials/09-persistent-matmul.html) | Persistent scheduling giảm launch/tile scheduling overhead | Cần tune per architecture | **E1, DEFERRED** cho #7 hoặc #6 |
 | Triton fused softmax | [Code](https://triton-lang.org/main/getting-started/tutorials/02-fused-softmax.html) | Một kernel thay nhiều op, giữ row trong SRAM | Attention production đã fuse softmax | Hữu ích cho diagnostics/unfused fallback |
 | Triton LayerNorm | [Code](https://triton-lang.org/main/getting-started/tutorials/05-layer-norm.html) | Row-wise reduction, fused affine | D=32/128/1024 cần config khác nhau | **E1**; nền cho LN+QKV custom |
 | AITemplate vertical/horizontal fusion | [Code](https://github.com/facebookincubator/AITemplate) | Fuse pointwise/reduction/layout vào GEMM; fuse nhiều independent ops | AOT/static shape thuận lợi cho 14 shape | **E1** |
@@ -259,7 +277,7 @@ Repository đang dùng exact GELU và đã quan sát approximate GELU/low-precis
 | Implementation | Code/nguồn | Điểm nổi bật | Đánh giá cho strict comparator |
 |---|---|---|---|
 | SageAttention 1 | [Code](https://github.com/thu-ml/SageAttention) | INT8 QK + smoothing; plug-in attention | **Q**; candidate tốt hơn naive INT8 QK |
-| SageAttention 2 | [Code/paper](https://github.com/thu-ml/SageAttention) | Thorough outlier smoothing, per-thread INT4 quantization nội bộ | **Q, P0 accuracy experiment** |
+| SageAttention 2 | [Code/paper](https://github.com/thu-ml/SageAttention) | Thorough outlier smoothing, per-thread INT4 quantization nội bộ | **Q, DEFERRED accuracy research**; current related recipes fail strict model gate |
 | SageAttention 2++ | [Code](https://github.com/thu-ml/SageAttention) | Tối ưu implementation Sage2; two-level PV accumulation | **Q**; thử `QK INT8 + PV FP16` trước |
 | SageAttention 3 | [Blackwell code](https://github.com/thu-ml/SageAttention/tree/main/sageattention3_blackwell) | Microscaling FP4 attention cho Blackwell | **Q high-risk**; chính tác giả khuyên Sage2 cho precision-sensitive |
 | FA3 FP8 | [Paper/code](https://github.com/Dao-AILab/flash-attention/tree/main/hopper) | Block quantization + incoherent processing giảm FP8 error | **D/Q**; Hopper-only, lấy ý tưởng rotation/smoothing |
@@ -535,111 +553,82 @@ Thay vì giữ toàn tensor FP32:
 
 Ý tưởng đến từ Sage smoothing, KVQuant outlier handling và mixed-precision GEMM. Đây là nhánh nghiên cứu high-risk nhưng sáng tạo, cần chứng minh overhead nhỏ hơn phần compute tiết kiệm.
 
-## 15. Lộ trình thí nghiệm đề xuất
+## 15. Lộ trình thí nghiệm sau follow-up
 
-### Phase 0 — khóa môi trường và profiler
+Các prerequisite đã đóng: PyTorch Flash control, full shape-#14 batch
+microchunk, streaming correctness oracle, target-environment manifest và inner
+profile. cuDNN/Efficient/FA4 exact path đã bị loại theo performance; current
+Sage recipes đã bị loại theo correctness. Vì vậy roadmap không chạy lại các
+nhánh này như thể chưa có evidence.
 
-Ghi lại:
+### Phase 0 — `NEXT`: mở rộng gate và khóa baseline
 
-- GPU model, compute capability, driver, CUDA, cuDNN, PyTorch, Triton;
-- TF32 flags và compile mode;
-- backend SDPA thực tế;
-- peak allocated/reserved memory;
-- op breakdown cho ít nhất #2, #6, #8, #12, #13.
+- Thêm nhiều seed, input scale, padding ratio, causal/non-causal và mask modes.
+- Ghi GPU/driver/CUDA/PyTorch/Triton, TF32, compile mode, actual SDPA backend,
+  peak allocated/reserved và cold-start/steady-state riêng.
+- Profile lại đúng target trước mỗi family; #14 giữ attention `92.258%` làm
+  starting evidence, không suy sang #6/#8 hoặc hardware khác.
 
-Không tối ưu attention nếu profiler cho thấy FFN/GEMM chiếm đa số shape đó.
+### Phase 1 — `NEXT`: exact FlashInfer SM120
 
-### Phase 1 — exact attention backend shoot-out
+1. Viết adapter version hóa cho `fmha_v2_prefill_sm120`.
+2. Gate attention-only và whole-layer trên #13, sau đó #14 B1.
+3. Giữ QKV/output layout tương đương và đưa mọi adapter/copy vào timed region.
+4. Dừng nếu end-to-end không thắng PyTorch Flash sau khi layout đã tối ưu hợp lý.
 
-Tạo adapter version hóa, không sửa đè V11:
+### Phase 2 — `NEXT`: QKV/layout/memory fusion
 
-1. cuDNN/SDPA explicit.
-2. FA4 CuTeDSL.
-3. FlashInfer SM120 FMHA v2.
-4. xFormers cross-check.
+- Thử TE `LayerNormLinear` hoặc custom/CUTLASS direct-layout epilogue.
+- Nối thẳng sang backend-native Q/K/V; với #14 thử separate/no-concat activation
+  và scratch reuse thay vì materialize packed activation lớn.
+- Gate từng fusion riêng để định vị numerical error; không gộp QKV, attention và
+  FFN thành một experiment không thể attribution.
 
-Gate:
+### Phase 3 — `NEXT`: accuracy-aware workload router
 
-- QKV/output layout identical và không có hidden copy ngoài timing;
-- causal output đúng;
-- `Dh = 8,32,64,128,256` đều có test;
-- benchmark whole layer, đồng thời report attention-only diagnostic.
+- Route theo workload regime và environment key, gồm launch-bound, standard,
+  GEMM-heavy, attention-heavy và extreme-memory.
+- Candidate đầu là direct-layout QKV cho large `B*S`, `D=FFN=128` vì đã có
+  measured evidence #6/#13; không dùng exact official test ID.
+- Chỉ promote khi strict full matrix PASS, reverse-order/raw-device evidence giữ
+  dấu, aggregate không regress và fallback vẫn đúng cho dtype/mask khác.
 
-Điểm dừng: nếu adapter cost làm candidate chậm hơn current V11 trên #13, không port sâu trước khi loại được copy/layout overhead.
+### Phase 4 — `DEFERRED`: exact FFN và small-shape specialization
 
-### Phase 2 — QKV và FFN fusion
+- #6/#8: cuBLASLt exact GELU epilogue, TE LayerNormMLP hoặc CUTLASS SM120.
+- #7/#11: `D=32`/`Dh=8` persistent kernel tránh general-purpose tile waste.
+- Mỗi nhánh chỉ mở khi profiler đúng shape xác nhận bottleneck; isolated kernel
+  hoặc kernel-count reduction không đủ.
 
-Nhánh QKV:
+### Phase 5 — `DEFERRED`: protected low precision
 
-- TE `LayerNormLinear`;
-- fused direct-layout store;
-- no-concat mode cho #14.
+- Chỉ thử recipe khác bản chất: QK INT8 có smoothing, PV FP16/two-level
+  accumulation, FP32 softmax/projection/residual và outlier correction nhỏ.
+- Chạy accuracy-only #1/#8/#13 trước; fail thì dừng, không timing chính thức.
+- Sage3 FP4/NVFP4 và blanket quantization đứng cuối vì strict comparator và
+  evidence negative hiện tại.
 
-Nhánh FFN:
+### Phase 6 — `DEFERRED`: custom SM120 attention
 
-- cuBLASLt GELU_BIAS;
-- TE LayerNormMLP/op fuser;
-- CUTLASS/custom Triton exact GELU.
-
-Gate riêng cho mỗi fusion để biết sai số xuất hiện ở đâu. Không gộp QKV+attention+FFN trong một commit đầu tiên.
-
-### Phase 3 — shape-specialized dispatch
-
-Đo route O/M/G/A trên 13 shape đầu. Chỉ thêm branch khi:
-
-- branch khớp đúng một hoặc nhiều official shapes;
-- không làm regression geomean hoặc có lý do chiến lược rõ;
-- compile/cache cost đã warmup và không leak memory;
-- fallback vẫn chạy causal/non-causal, mask/no-mask và supported dtype.
-
-### Phase 4 — shape #14 survival trước, speed sau
-
-1. Viết validator streaming local.
-2. Chứng minh `Bc=1` chạy đúng qua hai layer và output full shape.
-3. Đo peak memory theo chunk `1,2,4,8`.
-4. Chọn chunk nhanh nhất còn headroom an toàn.
-5. So cuDNN/FA4/FlashInfer trong cùng chunk.
-6. Sau khi exact pass mới thử Sage2.
-
-Baseline dense #14 không thể materialize score trên 32 GB; vì vậy cần thống nhất cách report speedup chính thức cho shape này. Không được tự bịa baseline latency hoặc thay shape nhỏ hơn rồi gọi là official.
-
-### Phase 5 — low precision high-upside
-
-Thứ tự candidate:
-
-1. Sage `qk_int8_pv_fp16`.
-2. Sage2++ PV mixed accumulation.
-3. Selective quantization theo layer/shape.
-4. Outlier-protected correction.
-5. Sage3 FP4 hoặc CUTLASS NVFP4 cuối cùng.
-
-Mỗi candidate chạy accuracy-only trên #1/#8/#13 trước. Nếu fail, lưu failure magnitude/location vào `EXPERIMENTS.md`; không chạy performance chính thức.
-
-### Phase 6 — custom kernel research
-
-Chỉ bắt đầu khi profile chứng minh library ceiling:
-
-- `Dh=8` persistent attention;
-- D=32 fully fused block;
-- causal S=100000 dynamic tile scheduler;
-- LN→QKV direct-layout epilogue;
-- exact FFN pre-GELU fusion.
-
-Nguồn code ưu tiên đọc: FlashInfer SM120, FA4 SM120, Triton tutorial, CUTLASS 79, ThunderKittens, TileLang.
+Chỉ bắt đầu khi Phase 1–2 chứng minh library ceiling. Candidate gồm exact online
+softmax, causal triangular load balancing cho `S=100000`, `Dh=8` specialization
+và batch–sequence 2D streaming nếu memory lại trở thành blocker. Nguồn code để
+mine scheduling: FlashInfer SM120, FA4 SM120, Triton, CUTLASS 79, TileLang và
+ThunderKittens; external microbenchmark không thay whole-model evidence.
 
 ## 16. Ma trận quyết định theo mục tiêu
 
 | Mục tiêu | Candidate tốt nhất | Candidate thứ hai | “Idea độc lạ” | Tránh nhầm |
 |---|---|---|---|---|
-| Tốc độ attention exact | cuDNN vs FlashInfer SM120 vs FA4 | xFormers/Triton specialized | causal persistent scheduler | FA3 không chạy RTX5090 |
-| Low memory exact | Flash/online softmax + batch microchunk | no-concat QKV, scratch reuse | 2D batch-query streaming | PagedAttention chủ yếu decode |
-| Low precision error | Sage2 QK INT8 + PV FP16 | FP32 softmax/two-level accum | outlier correction path | Kernel-only TOPS bỏ quant overhead |
-| QKV | TE LayerNormLinear + packed weight | CUTLASS direct layout | separate activation Q/K/V dù weight packed | Packed activation không luôn tốt #14 |
-| FFN | V11 exact + cublasLt/TE shoot-out | CUTLASS/Triton fused exact | tiny-cuda-nn-style fully resident D32 MLP | Tanh GELU có thể fail |
-| GEMM | cuBLASLt/Inductor autotune | CUTLASS SM120 | persistent grouped shape router | DeepGEMM SM100 không đồng nghĩa SM120 |
-| Kernel optimize | Vendor backend first | Triton | ThunderKittens/TileLang | Microbench không thay end-to-end |
+| Tốc độ attention exact | `NEXT`: FlashInfer SM120 | `SHIPPED` control: PyTorch Flash | causal persistent scheduler | cuDNN/FA4 đã thua exact measured path |
+| Low memory exact | `SHIPPED`: Flash/online softmax + batch microchunk | `NEXT`: no-concat QKV, scratch reuse | 2D batch-query streaming | PagedAttention chủ yếu decode |
+| Low precision error | `DEFERRED`: protected QK INT8 + PV FP16 | FP32 softmax/two-level accum | outlier correction path | Current Sage fail; kernel TOPS bỏ quant overhead |
+| QKV | `NEXT`: TE LayerNormLinear + native layout | CUTLASS direct-layout epilogue | separate activation Q/K/V dù weight packed | Packed activation không luôn tốt #14 |
+| FFN | `SHIPPED` exact pre-GELU control | `DEFERRED`: cuBLASLt/TE/CUTLASS exact fusion | fully resident D32 MLP | Tanh GELU và isolated win không đủ |
+| GEMM | Workload router + Inductor autotune | CUTLASS SM120 | persistent grouped schedule | DeepGEMM SM100 không đồng nghĩa SM120 |
+| Kernel optimize | Exact library backend first | Triton/CUTLASS sau library ceiling | ThunderKittens/TileLang | Microbench không thay end-to-end |
 | CPU | oneDNN/IPEX | LIBXSMM/FBGEMM | SME2/KleidiAI | CPU compute không giúp timed CUDA |
-| S=100000 innovation | exact chunked FMHA | Sage/Sparge diagnostic | Ring/NSA/MoBA concepts | Sparse/linear đổi semantics |
+| S=100000 innovation | FlashInfer exact + QKV/layout fusion | PyTorch Flash control | causal dynamic tile scheduler | Current Sage fail; sparse/linear đổi semantics |
 
 ## 17. Devil's advocate: những lý do report này có thể dẫn sai nếu dùng thiếu kỷ luật
 
@@ -735,4 +724,4 @@ có paired official speedup. Artifacts nằm trong `profile-results/` và quy tr
 
 ## 20. AI disclosure
 
-Report này được tổng hợp với hỗ trợ của AI từ tài liệu repository và các nguồn công khai được liên kết trực tiếp. AI đã phân loại mức phù hợp và đề xuất các tổ hợp mới; các đánh giá “P0/P1”, dự đoán bottleneck và synthesis ở mục 14 là nhận định kỹ thuật, không phải kết quả thực nghiệm. Mọi quyết định promote implementation phải dựa trên accuracy/benchmark tái lập được theo luật của repository.
+Report này được tổng hợp với hỗ trợ của AI từ tài liệu repository và các nguồn công khai được liên kết trực tiếp. AI đã phân loại mức phù hợp và đề xuất các tổ hợp mới; các nhãn trạng thái/ưu tiên, dự đoán bottleneck và synthesis ở mục 14 là nhận định kỹ thuật, không phải kết quả thực nghiệm. Mọi quyết định promote implementation phải dựa trên accuracy/benchmark tái lập được theo luật của repository.

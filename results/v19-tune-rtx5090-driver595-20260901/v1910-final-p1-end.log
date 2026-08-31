@@ -1,0 +1,10 @@
+implementation=v19.1.0 cutoff=8192 batch_chunk=1 parallel_parts=1 outer_compile=False inner_compile=True mode=max-autotune-no-cudagraphs
+repeat 01/5: 6949.3311 ms
+repeat 02/5: 6953.7939 ms
+repeat 03/5: 6966.1270 ms
+repeat 04/5: 6967.6553 ms
+repeat 05/5: 6968.9326 ms
+baseline : N/A (explicit score tensor is approximately 18.6 TiB)
+optimized: median=6966.1270 ms | mean=6961.1680 ms | p90=6968.4217 ms | min=6949.3311 ms | throughput=459365.73 token/s
+speedup  : N/A (no executable paired baseline)
+peak_allocated=25.649 GiB

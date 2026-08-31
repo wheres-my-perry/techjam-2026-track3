@@ -1,0 +1,41 @@
+{
+  "git_revision": "4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+  "implementation": "main.py -> v16_1_clean.py",
+  "shape": {
+    "batch_size": 32,
+    "seq_len": 100000,
+    "d_model": 1024,
+    "heads": 16,
+    "layers": 2,
+    "ffn_dim": 1024,
+    "causal": true
+  },
+  "accuracy": {
+    "status": "PASS",
+    "seed": 1234,
+    "failed_elements": 0,
+    "total_elements": 3276800000,
+    "max_abs": 0.000944197,
+    "max_rel": 151706000.0,
+    "mean_abs": 0.0000656367,
+    "elapsed_seconds": 348.534,
+    "peak_allocated_gib": 19.967,
+    "query_chunk": 256,
+    "compare_token_chunk": 2048
+  },
+  "performance": {
+    "kind": "optimized-only",
+    "warmup": 1,
+    "repeats": 5,
+    "samples_ms": [7135.0098, 7171.5771, 7213.5254, 7239.6484, 7260.9688],
+    "median_ms": 7213.5254,
+    "mean_ms": 7204.1459,
+    "p90_ms": 7252.4406,
+    "min_ms": 7135.0098,
+    "throughput_tokens_per_second": 443611.11,
+    "peak_allocated_gib": 24.487,
+    "baseline_ms": null,
+    "speedup": null,
+    "baseline_note": "N/A: the original reference would materialize an approximately 18.6 TiB attention-score tensor."
+  }
+}

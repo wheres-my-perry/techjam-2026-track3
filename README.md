@@ -1,7 +1,14 @@
-# TikTok TechJam 2026 — Track 3 Transformer GPU Optimization
+# Perry — Accuracy-Gated Transformer Optimization on RTX 5090
 
-PyTorch implementation of a GPU-optimized Transformer layer under the contest
-correctness rule:
+## Project overview
+
+Perry is a standalone, AI-assisted PyTorch Transformer implementation for
+TikTok TechJam 2026 Track 3. It passes the strict correctness gate on all 14
+official shapes, reduces inference latency on an NVIDIA GeForce RTX 5090, and
+makes the extreme `B=32, S=100000, D=1024` shape #14 executable within 32 GiB
+of GPU memory. The implementation preserves the public interface
+`UserOptimizedTransformer.forward(x, valid_token_mask)`, the output shape
+`[batch_size, seq_len, d_model]`, and the contest correctness rule:
 
 ```text
 relative_error < 0.02 OR absolute_error < 0.002
@@ -9,9 +16,9 @@ relative_error < 0.02 OR absolute_error < 0.002
 
 Both comparisons are strict and correctness is checked before performance.
 
-## Active implementation
+### Active implementation
 
-The repository root now contains one versioned implementation:
+The final submission uses one active implementation:
 
 - `v16_1_clean.py` — standalone V16.1 model, config, FP16 inference cache,
   Flash-first attention, Triton FP32-pre-GELU kernel and memory-bounded compiled
@@ -23,63 +30,160 @@ The repository root now contains one versioned implementation:
 Its only runtime dependencies are PyTorch and optional Triton. Historical
 `v1`–`v18` files are preserved under `archive/versions/`; they are not active
 runner aliases. Their results and decisions remain in `EXPERIMENTS.md`,
-`SOLUTION.md` and `DECISION.md`.
+`SOLUTION.md` and `DECISION.md`. The root-level `v19*.py` files are unpromoted
+research prototypes and are not imported by `main.py` or used for the final
+results.
 
 The active algorithm keeps LayerNorm, residuals and public output in FP32;
 uses FP16 operands for QKV, SDPA, projections and FFN GEMMs; evaluates exact
 GELU from the FP32 FFN-in accumulator; and uses a reusable compiled B=1 body
 inside an eager batch loop when `B > 1` and `S >= 8192`.
 
-## Quick start
+## Final validated results
 
-Create an environment with a CUDA-enabled PyTorch build compatible with the
-target GPU. Triton is normally included with the CUDA PyTorch wheel.
+The active standalone artifact was revalidated on commit
+`4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6` in a Vast.ai Ubuntu 24.04.4
+container with an AMD Ryzen 5 5600X, 33.56 GB RAM, an RTX 5090 and NVIDIA
+driver `595.71.05`. The run used PyTorch `2.11.0+cu128`, CUDA `12.8`, cuDNN
+`9.19.0`, Triton `3.6.0`, public FP32 tensors, TF32 enabled and
+`torch.compile(mode="max-autotune")` for shapes #1–#13.
 
-List the 14 official shapes:
+- Official #1–#13: all shapes strict PASS, zero failed elements, worst max
+  absolute error `0.00179085`, and predeclared start-control geometric-mean
+  speedup **11.803x**. End-control measured `11.838x`; the 3% drift gate PASS.
+- Official #14: full `B=32` strict PASS, `0/3,276,800,000` failed elements,
+  max absolute error `0.000944197`.
+- Shape #14 native B32 PASS; optimized-only median: `6987.4644 ms`, throughput
+  `457,962.98 token/s`, peak allocated memory `24.487 GiB`.
+- Shape #14 baseline latency and speedup are N/A because the original reference
+  would materialize an approximately `18.6 TiB` attention-score tensor.
+
+The commands, complete per-shape table, environment manifest and raw evidence
+are checked in under [`results/final/`](results/final/README.md).
+The full 11-checkpoint timeline and reverse-order repeats are under
+[`results/timeline-rtx5090-driver595/`](results/timeline-rtx5090-driver595/README.md).
+The complete execution report, including all checkpoint/shape speedups,
+correctness failures, drift controls, source hashes and shape-#14 stages, is in
+[`BENCHMARK_TIMELINE_REPORT.md`](BENCHMARK_TIMELINE_REPORT.md).
+Earlier driver-580 evidence remains archived under
+[`results/cross-host-driver580/`](results/cross-host-driver580/README.md). The
+ratio change from `7.904x` to `11.803x` is not a code improvement: the new
+host's baseline geomean was `72.48%` slower while optimized geomean was
+`15.51%` slower.
+
+## Setup and installation
+
+Prerequisites:
+
+- Linux with an NVIDIA GPU and a driver compatible with CUDA 12.8.
+- Python 3.12 and `venv`.
+- Enough GPU memory for the selected shape. Full shape #14 was validated on a
+  32 GiB RTX 5090.
+
+Clone the public repository and create an isolated environment:
 
 ```bash
+git clone https://github.com/wheres-my-perry/techjam-2026-track3.git
+cd techjam-2026-track3
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+The pinned environment reproduces the final stack: PyTorch `2.11.0+cu128`,
+CUDA `12.8` and Triton `3.6.0`. Confirm that PyTorch sees the GPU:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+## Steps to reproduce the results
+
+The commands below mirror the final single-GPU Vast.ai environment and use
+`CUDA_VISIBLE_DEVICES=0`. On the two-GPU development host, the project is
+assigned physical GPU index `1`; use `CUDA_VISIBLE_DEVICES=1` there. In both
+cases PyTorch addresses the one visible GPU as `cuda:0`.
+
+### 1. Run the preflight checks
+
+```bash
+python3 -m py_compile main.py matrix_runner.py profile_models.py \
+  torch_transformer_benchmark.py v16_1_clean.py shape14_accuracy.py \
+  shape14_optimized_benchmark.py shape14_profile.py \
+  shape14_fa4_probe.py shape14_sage_probe.py timeline_adapter.py \
+  timeline_runner.py shape14_checkpoint_worker.py shape14_timeline_runner.py
 python3 matrix_runner.py --list-shapes
+python3 profile_models.py --list-shapes
+python3 timeline_runner.py --list-checkpoints
+python3 shape14_timeline_runner.py --list-checkpoints
 ```
 
-Run main on official shape #1:
+### 2. Run a short official-shape smoke test
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python3 matrix_runner.py \
-  --impl main --shape-ids 1 \
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
   --device cuda:0 --dtype float32 \
-  --compile-user --compile-mode max-autotune
+  --batch-size 64 --seq-len 128 --d-model 128 \
+  --heads 4 --ffn-dim 128 --layers 4 --causal
 ```
 
-Run official shapes #1–#13:
+### 3. Reproduce official shapes #1–#13
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python3 matrix_runner.py \
-  --impl main \
-  --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
+CUDA_VISIBLE_DEVICES=0 python3 timeline_runner.py \
+  --checkpoints v16_1 \
+  --shape-ids 1-13 \
   --device cuda:0 --dtype float32 \
   --accuracy-trials 5 \
-  --compile-user --compile-mode max-autotune
+  --warmup 20 --repeats 100 --benchmark-rounds 3 \
+  --compile-mode max-autotune --timeout 1800
 ```
 
-The benchmark machine assigns this project physical GPU index `1`. After
-`CUDA_VISIBLE_DEVICES=1`, PyTorch correctly addresses it as `cuda:0`.
+The runner checks accuracy before timing, isolates each shape in a subprocess,
+and writes JSON/CSV results incrementally. On the final environment, V16.1
+passed all 13 shapes with zero failed elements. The promoted `11.803x` headline
+comes from the predeclared V16.1 start control in the full chronological sweep,
+not from selecting the fastest repeat after the fact.
 
-Official shape #14 requires the memory-bounded accuracy and optimized-only
-tools because the original reference would materialize an approximately
-18.6 TiB attention-score tensor:
+### 4. Reproduce official shape #14
+
+Shape #14 uses separate tools because the supplied reference would materialize
+an approximately 18.6 TiB attention-score tensor. Run the full memory-bounded
+correctness check first:
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python3 shape14_accuracy.py \
-  --device cuda:0 --impl main --batch-limit 32 --query-chunk 256 \
-  --compare-token-chunk 2048 --compile-mode max-autotune
-
-CUDA_VISIBLE_DEVICES=1 python3 shape14_optimized_benchmark.py \
-  --device cuda:0 --impl main --warmup 1 --repeats 5 \
-  --compile-mode max-autotune
+CUDA_VISIBLE_DEVICES=0 python3 shape14_timeline_runner.py \
+  --checkpoints baseline,v16_1 --device cuda:0 --seed 1234 \
+  --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 \
+  --warmup 1 --repeats 5 --compile-mode max-autotune
 ```
 
-The second command reports optimized-only latency. Baseline latency and speedup
-for shape #14 remain N/A.
+The expected final result is strict PASS with `0/3,276,800,000` failed output
+elements. The runner reports optimized-only latency after its correctness
+stages; baseline latency and speedup remain N/A. Exact commands from the final
+single-GPU machine, raw
+logs, JSON/CSV outputs and the environment manifest are in
+[`results/final/`](results/final/README.md).
+
+### 5. Reproduce the full optimization timeline
+
+The same-host cumulative sweep, including start/end drift controls, uses:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python3 timeline_runner.py \
+  --checkpoints v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1 \
+  --shape-ids 1-13 \
+  --device cuda:0 --dtype float32 --accuracy-trials 5 \
+  --warmup 20 --repeats 100 --benchmark-rounds 3 \
+  --compile-mode max-autotune --timeout 1800 \
+  --control-drift-threshold 0.03
+```
+
+This is the run that produced the cumulative checkpoint table, the `11.803x`
+start control, the `11.838x` end control and the passing 3% drift gate. See
+[`BENCHMARK_TIMELINE_REPORT.md`](BENCHMARK_TIMELINE_REPORT.md) for the full
+forward/reverse results and the failed-candidate audit trail.
 
 ## Standalone use
 
@@ -111,7 +215,7 @@ The causal fast path assumes right padding: each mask row is a `True` prefix
 followed by a `False` suffix. Arbitrary sparse masks do not satisfy the proof
 used to omit the causal key mask.
 
-## Validation
+## Additional validation and profiling
 
 Run the active syntax and orchestration checks:
 
@@ -127,8 +231,26 @@ python3 profile_models.py --list-shapes
 The standalone cleanup has passed local strict state-dict checks, bitwise
 causal/non-causal × mask/no-mask equivalence with the composed V16.1, training
 and BF16 fallback equivalence, plus compiled-executor reuse/invalidation checks.
-A fresh CUDA official matrix is still required before final submission; the
-cleanup itself does not create a new speedup claim.
+The fresh CUDA matrix on the standalone file also passed all official shapes:
+#1–#13 used five accuracy trials and paired `20/100/3` timing, while #14 used
+the full 32-batch streaming correctness gate and an optimized-only five-repeat
+CUDA Event benchmark. See [`results/final/`](results/final/README.md).
+
+## AI-assisted development and technical stack
+
+- **AI use:** OpenAI Codex helped audit the statement and comparator, classify
+  the official shapes, propose and implement PyTorch/Triton experiments,
+  interpret profiler evidence, and maintain the benchmark/documentation trail.
+  Every promoted change was still validated by the unchanged correctness gate
+  and target-GPU measurements.
+- **Runtime APIs:** PyTorch eager, scaled dot-product attention,
+  `torch.compile`, `torch.library.custom_op`, and Triton kernel APIs. The
+  submitted runtime calls no OpenAI API or other external service.
+- **Tools:** Git/GitHub, SSH, Python CLI, PyTorch Profiler/Kineto and CUDA
+  Events.
+- **Data and assets:** no external dataset is used. Inputs are synthetic tensors
+  generated from a fixed seed; the organizer-provided benchmark and 14 official
+  shapes are the only project assets.
 
 ## Repository map
 
@@ -141,6 +263,15 @@ cleanup itself does not create a new speedup claim.
 | `profile_models.py` | Accuracy, timing and profiler runner |
 | `shape14_accuracy.py` | Memory-bounded strict accuracy for shape #14 |
 | `shape14_optimized_benchmark.py` | Optimized-only shape-#14 timing |
+| `timeline_adapter.py` | Archived-checkpoint registry, injection and preflight |
+| `timeline_runner.py` | Full #1–#13 checkpoint sweep and drift controls |
+| `shape14_timeline_runner.py` | Isolated Baseline/V16.1 shape-#14 stages |
+| `BENCHMARK_TIMELINE_REPORT.md` | Complete driver-595 benchmark execution report |
+| `ATTENTION_OPTIMIZATION_RESEARCH.md` | Evidence-ranked attention follow-up catalogue |
+| `DEVPOST.md` | Submission-ready project narrative and team contribution record |
+| `results/final/` | Checked-in final environment and benchmark evidence |
+| `results/timeline-rtx5090-driver595/` | Curated timeline and reverse-order evidence |
+| `v19*.py` | Unpromoted scheduling/precision research prototypes |
 | `archive/versions/` | Historical implementation and opcheck files |
 | `STATEMENT.md` | Competition statement and official shapes |
 | `ARCHITECTURE.md` | Runtime and repository architecture |
@@ -149,7 +280,52 @@ cleanup itself does not create a new speedup claim.
 | `DECISION.md` | Long-term technical decisions |
 | `IMPLEMENTATION_PLAN.md` | Current phase and remaining work |
 
+## Reflection: limitations and future improvements
+
+- Final measurements target one RTX 5090/SM120 software stack; backend and
+  compile choices must be retuned for other GPUs.
+- The causal fast path assumes right padding rather than an arbitrary sparse
+  token mask.
+- Shape #14 has no paired baseline latency because the supplied reference would
+  require an approximately 18.6 TiB score tensor.
+- The official final gate uses seed 1234. More seeds, input scales, padding
+  ratios and compile cold-start measurements would strengthen robustness.
+- The optimized fast path targets FP32 inference with internal FP16 compute;
+  training and unsupported public dtypes use the safer reference fallback.
+- Reported latency is steady-state and excludes compilation and autotuning
+  cold-start cost.
+
+The solution deliberately favors measured, accuracy-valid end-to-end gains over
+isolated kernel wins. This makes the final artifact reliable on the official
+matrix, but it is not yet a universal Transformer runtime. With more time, the
+next priorities would be exact FlashInfer SM120 attention, fusion of LayerNorm
+into QKV projection and backend-native layout, a workload-based direct-QKV
+router for large token volumes, then broader multi-seed, multi-hardware and
+cold-start/backend validation. Accuracy-protected
+low-precision islands and custom SM120 attention remain deferred until the
+exact library and layout paths have been measured end to end. The
+evidence-ranked roadmap is in
+[`ATTENTION_OPTIMIZATION_RESEARCH.md`](ATTENTION_OPTIMIZATION_RESEARCH.md), and
+the detailed reflection is in [`SOLUTION.md`](SOLUTION.md).
+
+## Team member contributions
+
+- **Le Tuan Hoang** — coordinated GPU access; contributed the high-level
+  attention direction, FP32 pre-GELU accumulation, and the SDPA and FP32-to-FP16
+  precision-reduction proposals.
+- **Vo Khac Trieu** — owned the end-to-end technical implementation; implemented
+  the SDPA and mixed-precision proposals, Flash-first attention, Triton
+  FFN/GELU fusion and memory-bounded long-sequence scheduling; built the
+  benchmark tooling and ran and analyzed the correctness/performance tests.
+- **Le Kien Thanh and Nguyen An Thinh** — produced the slides and demo video;
+  their Track 3 work focused on presentation while they primarily handled the
+  team's Track 5 project.
+
+A Devpost-ready project description is available in
+[`DEVPOST.md`](DEVPOST.md). The public demo-video URL is still pending there.
+
 Performance results are valid only when baseline and optimized runs use the
 same GPU, dtype, official shape, seed, warmup, repeats, compile configuration
-and TF32 policy. Historical measurements are documented in `SOLUTION.md` and
-must not be attributed to the new standalone file without a fresh GPU rerun.
+and TF32 policy. Historical measurements remain in `SOLUTION.md`; only the
+fresh standalone run under `results/final/` is attributed to the submitted
+artifact.

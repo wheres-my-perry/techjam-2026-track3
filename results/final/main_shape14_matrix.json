@@ -1,0 +1,359 @@
+{
+  "metadata": {
+    "started_at": "2026-08-31T14:35:06.390866+00:00",
+    "run_id": "full14-sweep-r1",
+    "environment_id": "rtx5090-sm120-driver595.71.05-torch2.11-cu128",
+    "source_revision": "4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+    "source_revision_verification": "declared-snapshot-with-file-sha256",
+    "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.39",
+    "python_executable": "/venv/main/bin/python",
+    "cuda_visible_devices": "0",
+    "runtime": {
+      "cuda_wheel": "12.8",
+      "cudnn": "91900",
+      "python": "3.12.14",
+      "pytorch": "2.11.0+cu128",
+      "triton": "3.6.0"
+    },
+    "gpu_at_start": {
+      "inventory": {
+        "command": "nvidia-smi --query-gpu=name,uuid,driver_version,memory.total,pstate,temperature.gpu,clocks.sm,power.draw --format=csv,noheader,nounits",
+        "returncode": 0,
+        "output": "NVIDIA GeForce RTX 5090, GPU-9a88c6a2-9ed4-c3d3-ae01-35c08422a78e, 595.71.05, 32607, P0, 58, 2872, 109.31"
+      },
+      "compute_processes": {
+        "command": "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits",
+        "returncode": 0,
+        "output": ""
+      }
+    },
+    "runner_sha256": "d46d2462ae8d845bf96980203623d5ddc9a655e5dbe68056185df5b2820dfa88",
+    "worker_sha256": "79260eb4e2b46d4719d2498fbb746fb1a66cb86e34261f157a2f4aa9b4437025",
+    "adapter_sha256": "b0ee017fc9f283fdd39535b8518606904be6675bc8819c2d486ea794d644f8a0",
+    "checkpoint_ids": [
+      "baseline",
+      "v16_1"
+    ],
+    "protocol": {
+      "seed": 1234,
+      "batch_limit": 32,
+      "query_chunk": 256,
+      "compare_token_chunk": 2048,
+      "warmup": 1,
+      "repeats": 5,
+      "compile_mode": "max-autotune",
+      "b1_timeout": 900,
+      "streamed_timeout": 3600,
+      "native_timeout": 1800,
+      "baseline_latency": null,
+      "speedup": null
+    },
+    "invocation": "/venv/main/bin/python shape14_timeline_runner.py --python /venv/main/bin/python --checkpoints baseline,v16_1 --device cuda:0 --seed 1234 --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 --warmup 1 --repeats 5 --compile-mode max-autotune --b1-timeout 900 --streamed-timeout 3600 --native-timeout 1800 --run-id full14-sweep-r1 --environment-id rtx5090-sm120-driver595.71.05-torch2.11-cu128 --source-revision 4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+    "finished_at": "2026-08-31T14:42:08.090802+00:00",
+    "updated_at": "2026-08-31T14:42:08.090829+00:00"
+  },
+  "records": [
+    {
+      "checkpoint_id": "baseline",
+      "checkpoint": {
+        "checkpoint_id": "baseline",
+        "label": "PyTorch baseline",
+        "source": "torch_transformer_benchmark.py",
+        "class_name": "BaselineTransformer",
+        "compile_user": false,
+        "shape14_strategy": "static_infeasible",
+        "shape14_static_reason": "explicit attention materializes an S-by-S score tensor",
+        "files": [
+          {
+            "path": "torch_transformer_benchmark.py",
+            "sha256": "c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500"
+          }
+        ]
+      },
+      "preflight": {
+        "status": "PASS",
+        "returncode": 0,
+        "command": "/venv/main/bin/python /workspace/techjam-2026-track3/timeline_adapter.py --checkpoint baseline --preflight-only",
+        "output": "TIMELINE_PREFLIGHT_JSON={\"checkpoint\": {\"checkpoint_id\": \"baseline\", \"class_name\": \"BaselineTransformer\", \"compile_user\": false, \"files\": [{\"path\": \"torch_transformer_benchmark.py\", \"sha256\": \"c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500\"}], \"label\": \"PyTorch baseline\", \"shape14_static_reason\": \"explicit attention materializes an S-by-S score tensor\", \"shape14_strategy\": \"static_infeasible\", \"source\": \"torch_transformer_benchmark.py\"}, \"forward_parameters\": [\"self\", \"x\", \"valid_token_mask\"], \"resolved_class\": \"torch_transformer_benchmark.BaselineTransformer\", \"resolved_module\": \"torch_transformer_benchmark\", \"state_dict_keys\": 66, \"status\": \"PASS\", \"weight_equivalence\": true}\n"
+      },
+      "gpu_before": {
+        "inventory": {
+          "command": "nvidia-smi --query-gpu=name,uuid,driver_version,memory.total,pstate,temperature.gpu,clocks.sm,power.draw --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": "NVIDIA GeForce RTX 5090, GPU-9a88c6a2-9ed4-c3d3-ae01-35c08422a78e, 595.71.05, 32607, P0, 57, 2872, 109.00"
+        },
+        "compute_processes": {
+          "command": "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": ""
+        }
+      },
+      "stages": {
+        "b1-accuracy": {
+          "checkpoint_id": "baseline",
+          "stage": "b1-accuracy",
+          "status": "INFEASIBLE_STATIC",
+          "reason": "explicit attention materializes an S-by-S score tensor",
+          "command": null,
+          "returncode": null,
+          "output": ""
+        },
+        "streamed-b32-accuracy": {
+          "checkpoint_id": "baseline",
+          "stage": "streamed-b32-accuracy",
+          "status": "SKIP",
+          "reason": "explicit attention materializes an S-by-S score tensor",
+          "command": null,
+          "returncode": null,
+          "output": ""
+        },
+        "native-b32-probe": {
+          "checkpoint_id": "baseline",
+          "stage": "native-b32-probe",
+          "status": "SKIP",
+          "reason": "explicit attention materializes an S-by-S score tensor",
+          "command": null,
+          "returncode": null,
+          "output": ""
+        },
+        "native-timing": {
+          "checkpoint_id": "baseline",
+          "stage": "native-timing",
+          "status": "SKIP",
+          "reason": "explicit attention materializes an S-by-S score tensor",
+          "command": null,
+          "returncode": null,
+          "output": ""
+        }
+      }
+    },
+    {
+      "checkpoint_id": "v16_1",
+      "checkpoint": {
+        "checkpoint_id": "v16_1",
+        "label": "V16.1 standalone final",
+        "source": "v16_1_clean.py",
+        "class_name": "UserOptimizedTransformer",
+        "compile_user": true,
+        "shape14_strategy": "inner_executor",
+        "shape14_static_reason": null,
+        "files": [
+          {
+            "path": "v16_1_clean.py",
+            "sha256": "522feff97b482e920d3dde542a659473bdc66ae04757205ab4b9b7c2e209025c"
+          },
+          {
+            "path": "torch_transformer_benchmark.py",
+            "sha256": "c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500"
+          }
+        ]
+      },
+      "preflight": {
+        "status": "PASS",
+        "returncode": 0,
+        "command": "/venv/main/bin/python /workspace/techjam-2026-track3/timeline_adapter.py --checkpoint v16_1 --preflight-only",
+        "output": "TIMELINE_PREFLIGHT_JSON={\"checkpoint\": {\"checkpoint_id\": \"v16_1\", \"class_name\": \"UserOptimizedTransformer\", \"compile_user\": true, \"files\": [{\"path\": \"v16_1_clean.py\", \"sha256\": \"522feff97b482e920d3dde542a659473bdc66ae04757205ab4b9b7c2e209025c\"}, {\"path\": \"torch_transformer_benchmark.py\", \"sha256\": \"c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500\"}], \"label\": \"V16.1 standalone final\", \"shape14_static_reason\": null, \"shape14_strategy\": \"inner_executor\", \"source\": \"v16_1_clean.py\"}, \"forward_parameters\": [\"self\", \"x\", \"valid_token_mask\"], \"resolved_class\": \"_timeline_v16_1_30387.UserOptimizedTransformer\", \"resolved_module\": \"_timeline_v16_1_30387\", \"state_dict_keys\": 66, \"status\": \"PASS\", \"weight_equivalence\": true}\n"
+      },
+      "gpu_before": {
+        "inventory": {
+          "command": "nvidia-smi --query-gpu=name,uuid,driver_version,memory.total,pstate,temperature.gpu,clocks.sm,power.draw --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": "NVIDIA GeForce RTX 5090, GPU-9a88c6a2-9ed4-c3d3-ae01-35c08422a78e, 595.71.05, 32607, P0, 57, 2872, 108.45"
+        },
+        "compute_processes": {
+          "command": "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits",
+          "returncode": 0,
+          "output": ""
+        }
+      },
+      "stages": {
+        "b1-accuracy": {
+          "allow_tf32": true,
+          "baseline_latency_ms": null,
+          "checkpoint_id": "v16_1",
+          "checkpoint_label": "V16.1 standalone final",
+          "compare_token_chunk": 2048,
+          "compile_mode": "max-autotune",
+          "elapsed_s": 15.293916060822085,
+          "evaluated_batch_samples": 1,
+          "failed": 0,
+          "inner_executor": true,
+          "matmul_precision": "high",
+          "max_abs": 0.0006406903266906738,
+          "max_rel": 7096.74951171875,
+          "mean_abs": 6.5643813528069e-05,
+          "outer_compile": false,
+          "output_dtype": "torch.float32",
+          "output_shape": [
+            1,
+            100000,
+            1024
+          ],
+          "peak_allocated_gib": 8.138182163238525,
+          "query_chunk": 256,
+          "resolved_module": "_timeline_v16_1_30408",
+          "seed": 1234,
+          "shape": {
+            "batch_size": 32,
+            "causal": true,
+            "d_model": 1024,
+            "ffn_dim": 1024,
+            "heads": 16,
+            "layers": 2,
+            "seq_len": 100000
+          },
+          "shape_id": 14,
+          "speedup": null,
+          "stage": "b1-accuracy",
+          "status": "PASS",
+          "strategy": "inner_executor",
+          "total": 102400000,
+          "command": "/venv/main/bin/python /workspace/techjam-2026-track3/shape14_checkpoint_worker.py --checkpoint v16_1 --stage b1-accuracy --device cuda:0 --seed 1234 --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 --warmup 1 --repeats 5 --compile-mode max-autotune",
+          "timeout_s": 900,
+          "duration_s": 18.179,
+          "returncode": 0,
+          "output": "sample 01/1: PASS | failed=0/102400000 | max_abs=0.00064069 | elapsed_s=15.294\nSHAPE14_STAGE_JSON={\"allow_tf32\": true, \"baseline_latency_ms\": null, \"checkpoint_id\": \"v16_1\", \"checkpoint_label\": \"V16.1 standalone final\", \"compare_token_chunk\": 2048, \"compile_mode\": \"max-autotune\", \"elapsed_s\": 15.293916060822085, \"evaluated_batch_samples\": 1, \"failed\": 0, \"inner_executor\": true, \"matmul_precision\": \"high\", \"max_abs\": 0.0006406903266906738, \"max_rel\": 7096.74951171875, \"mean_abs\": 6.5643813528069e-05, \"outer_compile\": false, \"output_dtype\": \"torch.float32\", \"output_shape\": [1, 100000, 1024], \"peak_allocated_gib\": 8.138182163238525, \"query_chunk\": 256, \"resolved_module\": \"_timeline_v16_1_30408\", \"seed\": 1234, \"shape\": {\"batch_size\": 32, \"causal\": true, \"d_model\": 1024, \"ffn_dim\": 1024, \"heads\": 16, \"layers\": 2, \"seq_len\": 100000}, \"shape_id\": 14, \"speedup\": null, \"stage\": \"b1-accuracy\", \"status\": \"PASS\", \"strategy\": \"inner_executor\", \"total\": 102400000}\n"
+        },
+        "streamed-b32-accuracy": {
+          "allow_tf32": true,
+          "baseline_latency_ms": null,
+          "checkpoint_id": "v16_1",
+          "checkpoint_label": "V16.1 standalone final",
+          "compare_token_chunk": 2048,
+          "compile_mode": "max-autotune",
+          "elapsed_s": 330.7831118470058,
+          "evaluated_batch_samples": 32,
+          "failed": 0,
+          "inner_executor": true,
+          "matmul_precision": "high",
+          "max_abs": 0.0009441971778869629,
+          "max_rel": 151706320.0,
+          "mean_abs": 6.563669754813722e-05,
+          "outer_compile": false,
+          "output_dtype": "torch.float32",
+          "output_shape": [
+            1,
+            100000,
+            1024
+          ],
+          "peak_allocated_gib": 19.966630458831787,
+          "query_chunk": 256,
+          "resolved_module": "_timeline_v16_1_30478",
+          "seed": 1234,
+          "shape": {
+            "batch_size": 32,
+            "causal": true,
+            "d_model": 1024,
+            "ffn_dim": 1024,
+            "heads": 16,
+            "layers": 2,
+            "seq_len": 100000
+          },
+          "shape_id": 14,
+          "speedup": null,
+          "stage": "streamed-b32-accuracy",
+          "status": "PASS",
+          "strategy": "inner_executor",
+          "total": 3276800000,
+          "command": "/venv/main/bin/python /workspace/techjam-2026-track3/shape14_checkpoint_worker.py --checkpoint v16_1 --stage streamed-b32-accuracy --device cuda:0 --seed 1234 --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 --warmup 1 --repeats 5 --compile-mode max-autotune",
+          "timeout_s": 3600,
+          "duration_s": 333.674,
+          "returncode": 0,
+          "output": "sample 01/32: PASS | failed=0/102400000 | max_abs=0.000719786 | elapsed_s=14.977\nsample 02/32: PASS | failed=0/204800000 | max_abs=0.000719786 | elapsed_s=10.206\nsample 03/32: PASS | failed=0/307200000 | max_abs=0.000719786 | elapsed_s=10.184\nsample 04/32: PASS | failed=0/409600000 | max_abs=0.000719786 | elapsed_s=10.184\nsample 05/32: PASS | failed=0/512000000 | max_abs=0.000719786 | elapsed_s=10.185\nsample 06/32: PASS | failed=0/614400000 | max_abs=0.000719786 | elapsed_s=10.184\nsample 07/32: PASS | failed=0/716800000 | max_abs=0.000719786 | elapsed_s=10.186\nsample 08/32: PASS | failed=0/819200000 | max_abs=0.000719786 | elapsed_s=10.185\nsample 09/32: PASS | failed=0/921600000 | max_abs=0.000752866 | elapsed_s=10.187\nsample 10/32: PASS | failed=0/1024000000 | max_abs=0.000752866 | elapsed_s=10.185\nsample 11/32: PASS | failed=0/1126400000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 12/32: PASS | failed=0/1228800000 | max_abs=0.000944197 | elapsed_s=10.186\nsample 13/32: PASS | failed=0/1331200000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 14/32: PASS | failed=0/1433600000 | max_abs=0.000944197 | elapsed_s=10.188\nsample 15/32: PASS | failed=0/1536000000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 16/32: PASS | failed=0/1638400000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 17/32: PASS | failed=0/1740800000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 18/32: PASS | failed=0/1843200000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 19/32: PASS | failed=0/1945600000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 20/32: PASS | failed=0/2048000000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 21/32: PASS | failed=0/2150400000 | max_abs=0.000944197 | elapsed_s=10.188\nsample 22/32: PASS | failed=0/2252800000 | max_abs=0.000944197 | elapsed_s=10.188\nsample 23/32: PASS | failed=0/2355200000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 24/32: PASS | failed=0/2457600000 | max_abs=0.000944197 | elapsed_s=10.188\nsample 25/32: PASS | failed=0/2560000000 | max_abs=0.000944197 | elapsed_s=10.188\nsample 26/32: PASS | failed=0/2662400000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 27/32: PASS | failed=0/2764800000 | max_abs=0.000944197 | elapsed_s=10.188\nsample 28/32: PASS | failed=0/2867200000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 29/32: PASS | failed=0/2969600000 | max_abs=0.000944197 | elapsed_s=10.188\nsample 30/32: PASS | failed=0/3072000000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 31/32: PASS | failed=0/3174400000 | max_abs=0.000944197 | elapsed_s=10.187\nsample 32/32: PASS | failed=0/3276800000 | max_abs=0.000944197 | elapsed_s=10.188\nSHAPE14_STAGE_JSON={\"allow_tf32\": true, \"baseline_latency_ms\": null, \"checkpoint_id\": \"v16_1\", \"checkpoint_label\": \"V16.1 standalone final\", \"compare_token_chunk\": 2048, \"compile_mode\": \"max-autotune\", \"elapsed_s\": 330.7831118470058, \"evaluated_batch_samples\": 32, \"failed\": 0, \"inner_executor\": true, \"matmul_precision\": \"high\", \"max_abs\": 0.0009441971778869629, \"max_rel\": 151706320.0, \"mean_abs\": 6.563669754813722e-05, \"outer_compile\": false, \"output_dtype\": \"torch.float32\", \"output_shape\": [1, 100000, 1024], \"peak_allocated_gib\": 19.966630458831787, \"query_chunk\": 256, \"resolved_module\": \"_timeline_v16_1_30478\", \"seed\": 1234, \"shape\": {\"batch_size\": 32, \"causal\": true, \"d_model\": 1024, \"ffn_dim\": 1024, \"heads\": 16, \"layers\": 2, \"seq_len\": 100000}, \"shape_id\": 14, \"speedup\": null, \"stage\": \"streamed-b32-accuracy\", \"status\": \"PASS\", \"strategy\": \"inner_executor\", \"total\": 3276800000}\n"
+        },
+        "native-b32-probe": {
+          "allow_tf32": true,
+          "baseline_latency_ms": null,
+          "checkpoint_id": "v16_1",
+          "checkpoint_label": "V16.1 standalone final",
+          "compile_mode": "max-autotune",
+          "elapsed_s": 11.918301615864038,
+          "inner_executor": true,
+          "matmul_precision": "high",
+          "outer_compile": false,
+          "output_contract": "PASS",
+          "output_dtype": "torch.float32",
+          "output_shape": [
+            32,
+            100000,
+            1024
+          ],
+          "peak_allocated_gib": 26.030383110046387,
+          "resolved_module": "_timeline_v16_1_30546",
+          "seed": 1234,
+          "shape": {
+            "batch_size": 32,
+            "causal": true,
+            "d_model": 1024,
+            "ffn_dim": 1024,
+            "heads": 16,
+            "layers": 2,
+            "seq_len": 100000
+          },
+          "shape_id": 14,
+          "speedup": null,
+          "stage": "native-b32-probe",
+          "status": "PASS",
+          "strategy": "inner_executor",
+          "command": "/venv/main/bin/python /workspace/techjam-2026-track3/shape14_checkpoint_worker.py --checkpoint v16_1 --stage native-b32-probe --device cuda:0 --seed 1234 --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 --warmup 1 --repeats 5 --compile-mode max-autotune",
+          "timeout_s": 1800,
+          "duration_s": 14.889,
+          "returncode": 0,
+          "output": "SHAPE14_STAGE_JSON={\"allow_tf32\": true, \"baseline_latency_ms\": null, \"checkpoint_id\": \"v16_1\", \"checkpoint_label\": \"V16.1 standalone final\", \"compile_mode\": \"max-autotune\", \"elapsed_s\": 11.918301615864038, \"inner_executor\": true, \"matmul_precision\": \"high\", \"outer_compile\": false, \"output_contract\": \"PASS\", \"output_dtype\": \"torch.float32\", \"output_shape\": [32, 100000, 1024], \"peak_allocated_gib\": 26.030383110046387, \"resolved_module\": \"_timeline_v16_1_30546\", \"seed\": 1234, \"shape\": {\"batch_size\": 32, \"causal\": true, \"d_model\": 1024, \"ffn_dim\": 1024, \"heads\": 16, \"layers\": 2, \"seq_len\": 100000}, \"shape_id\": 14, \"speedup\": null, \"stage\": \"native-b32-probe\", \"status\": \"PASS\", \"strategy\": \"inner_executor\"}\n"
+        },
+        "native-timing": {
+          "allow_tf32": true,
+          "baseline_latency_ms": null,
+          "checkpoint_id": "v16_1",
+          "checkpoint_label": "V16.1 standalone final",
+          "compile_mode": "max-autotune",
+          "inner_executor": true,
+          "matmul_precision": "high",
+          "optimized_mean_ms": 6989.315234375,
+          "optimized_median_ms": 6987.46435546875,
+          "optimized_min_ms": 6983.923828125,
+          "optimized_p90_ms": 6994.09990234375,
+          "outer_compile": false,
+          "output_dtype": "torch.float32",
+          "output_shape": [
+            32,
+            100000,
+            1024
+          ],
+          "peak_allocated_gib": 24.487462997436523,
+          "repeats": 5,
+          "resolved_module": "_timeline_v16_1_30615",
+          "samples_ms": [
+            6987.46435546875,
+            6983.923828125,
+            6987.4033203125,
+            6992.8544921875,
+            6994.93017578125
+          ],
+          "seed": 1234,
+          "shape": {
+            "batch_size": 32,
+            "causal": true,
+            "d_model": 1024,
+            "ffn_dim": 1024,
+            "heads": 16,
+            "layers": 2,
+            "seq_len": 100000
+          },
+          "shape_id": 14,
+          "speedup": null,
+          "stage": "native-timing",
+          "status": "PASS",
+          "strategy": "inner_executor",
+          "throughput_tokens_per_s": 457962.98016111023,
+          "warmup": 1,
+          "command": "/venv/main/bin/python /workspace/techjam-2026-track3/shape14_checkpoint_worker.py --checkpoint v16_1 --stage native-timing --device cuda:0 --seed 1234 --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 --warmup 1 --repeats 5 --compile-mode max-autotune",
+          "timeout_s": 1800,
+          "duration_s": 50.548,
+          "returncode": 0,
+          "output": "repeat 01/5: 6987.4644 ms\nrepeat 02/5: 6983.9238 ms\nrepeat 03/5: 6987.4033 ms\nrepeat 04/5: 6992.8545 ms\nrepeat 05/5: 6994.9302 ms\nSHAPE14_STAGE_JSON={\"allow_tf32\": true, \"baseline_latency_ms\": null, \"checkpoint_id\": \"v16_1\", \"checkpoint_label\": \"V16.1 standalone final\", \"compile_mode\": \"max-autotune\", \"inner_executor\": true, \"matmul_precision\": \"high\", \"optimized_mean_ms\": 6989.315234375, \"optimized_median_ms\": 6987.46435546875, \"optimized_min_ms\": 6983.923828125, \"optimized_p90_ms\": 6994.09990234375, \"outer_compile\": false, \"output_dtype\": \"torch.float32\", \"output_shape\": [32, 100000, 1024], \"peak_allocated_gib\": 24.487462997436523, \"repeats\": 5, \"resolved_module\": \"_timeline_v16_1_30615\", \"samples_ms\": [6987.46435546875, 6983.923828125, 6987.4033203125, 6992.8544921875, 6994.93017578125], \"seed\": 1234, \"shape\": {\"batch_size\": 32, \"causal\": true, \"d_model\": 1024, \"ffn_dim\": 1024, \"heads\": 16, \"layers\": 2, \"seq_len\": 100000}, \"shape_id\": 14, \"speedup\": null, \"stage\": \"native-timing\", \"status\": \"PASS\", \"strategy\": \"inner_executor\", \"throughput_tokens_per_s\": 457962.98016111023, \"warmup\": 1}\n"
+        }
+      }
+    }
+  ]
+}

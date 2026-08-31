@@ -24,6 +24,13 @@ IMPLEMENTATIONS = {
     "v16_1": "main.py",
     "v16.1.clean": "main.py",
     "v16_1_clean": "main.py",
+    "v19": "v19_CUDAFP16Checkpoint.py",
+    "v19.cuda": "v19_CUDAFP16Checkpoint.py",
+    "v19_cuda": "v19_CUDAFP16Checkpoint.py",
+    "v19.1.0": "v19_1_0_ParallelBatchV161.py",
+    "v19_1_0": "v19_1_0_ParallelBatchV161.py",
+    "v19.1.1": "v19_1_1_ParallelBatchV19.py",
+    "v19_1_1": "v19_1_1_ParallelBatchV19.py",
 }
 
 
@@ -101,7 +108,9 @@ def parse_args() -> argparse.Namespace:
         default="main",
         help=(
             "Python file path, relative to this repo or absolute; aliases: "
-            "main, best, v16.1, v16_1, v16.1.clean, v16_1_clean"
+            "main, best, v16.1, v16_1, v16.1.clean, v16_1_clean, "
+            "v19, v19.cuda, v19_cuda, v19.1.0, v19_1_0, "
+            "v19.1.1, v19_1_1"
         ),
     )
     parser.add_argument(

@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "started_at": "2026-08-31T15:20:51.484892+00:00",
+    "implementation": "main.py",
+    "implementation_arg": "main",
+    "script": "/workspace/techjam-v19-tune.LzvYXE/main.py",
+    "python": "/venv/main/bin/python",
+    "python_version": "3.12.14",
+    "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.39",
+    "cuda_visible_devices": "0",
+    "device": "cuda:0",
+    "dtype": "float32",
+    "shape_ids": [
+      6
+    ],
+    "accuracy_trials": 3,
+    "warmup": 10,
+    "repeats": 30,
+    "benchmark_rounds": 3,
+    "seed": 1234,
+    "timeout": 1800,
+    "matmul_precision": "high",
+    "allow_tf32": true,
+    "compile_baseline": false,
+    "compile_user": true,
+    "compile_mode": "max-autotune",
+    "benchmark_on_failure": false,
+    "git_revision": null,
+    "updated_at": "2026-08-31T15:21:19.833955+00:00"
+  },
+  "results": [
+    {
+      "shape_id": 6,
+      "batch_size": 10000,
+      "d_model": 128,
+      "heads": 4,
+      "seq_len": 128,
+      "layers": 4,
+      "ffn_dim": 128,
+      "causal": true,
+      "status": "PASS",
+      "accuracy": "PASS",
+      "max_abs": 0.00160612,
+      "max_rel": 270449000.0,
+      "failed": 0,
+      "total": 491520000,
+      "baseline_median_ms": 177.3999,
+      "baseline_p90_ms": 177.4737,
+      "baseline_throughput": 7215336.55,
+      "optimized_median_ms": 25.238,
+      "optimized_p90_ms": 25.346,
+      "optimized_throughput": 50717074.95,
+      "speedup": 7.029,
+      "duration_s": 28.345,
+      "returncode": 0,
+      "error": null,
+      "command": "/venv/main/bin/python /workspace/techjam-v19-tune.LzvYXE/main.py --device cuda:0 --dtype float32 --batch-size 10000 --seq-len 128 --d-model 128 --heads 4 --ffn-dim 128 --layers 4 --accuracy-trials 3 --warmup 10 --repeats 30 --benchmark-rounds 3 --seed 1234 --matmul-precision high --causal --compile-user --compile-mode max-autotune",
+      "output": "=== Configuration ===\nTransformerConfig(batch_size=10000, seq_len=128, d_model=128, num_heads=4, ffn_dim=128, num_layers=4, causal=True)\ndevice=cuda:0, dtype=torch.float32, torch=2.11.0+cu128\ngpu=NVIDIA GeForce RTX 5090\n\n=== Accuracy check ===\ncriterion: abs_error < 0.002 OR relative_error < 2.00%\ntrial 01/3: PASS | max_abs=0.00153172 | max_rel=23536.4 | failed=0/163840000\ntrial 02/3: PASS | max_abs=0.00160612 | max_rel=2.70449e+08 | failed=0/163840000\ntrial 03/3: PASS | max_abs=0.0014978 | max_rel=1.69161e+08 | failed=0/163840000\nsummary: PASS | max_abs=0.00160612 | max_rel=2.70449e+08 | failed=0/491520000\n\n=== Performance benchmark ===\ntiming excludes random-data generation and uses a fixed input\nCUDA latency is measured with torch.cuda.Event on the current stream\nbaseline : median=177.3999 ms | mean=177.4232 ms | p90=177.4737 ms | min=177.2621 ms | throughput=7215336.55 token/s\noptimized: median=25.2380 ms | mean=25.2521 ms | p90=25.3460 ms | min=25.1449 ms | throughput=50717074.95 token/s\nspeedup  : 7.029x based on median latency\n"
+    }
+  ]
+}

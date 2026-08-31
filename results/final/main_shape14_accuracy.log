@@ -1,0 +1,34 @@
+sample 01/32: PASS | failed=0/102400000 | max_abs=0.000719786 | elapsed_s=14.977
+sample 02/32: PASS | failed=0/204800000 | max_abs=0.000719786 | elapsed_s=10.206
+sample 03/32: PASS | failed=0/307200000 | max_abs=0.000719786 | elapsed_s=10.184
+sample 04/32: PASS | failed=0/409600000 | max_abs=0.000719786 | elapsed_s=10.184
+sample 05/32: PASS | failed=0/512000000 | max_abs=0.000719786 | elapsed_s=10.185
+sample 06/32: PASS | failed=0/614400000 | max_abs=0.000719786 | elapsed_s=10.184
+sample 07/32: PASS | failed=0/716800000 | max_abs=0.000719786 | elapsed_s=10.186
+sample 08/32: PASS | failed=0/819200000 | max_abs=0.000719786 | elapsed_s=10.185
+sample 09/32: PASS | failed=0/921600000 | max_abs=0.000752866 | elapsed_s=10.187
+sample 10/32: PASS | failed=0/1024000000 | max_abs=0.000752866 | elapsed_s=10.185
+sample 11/32: PASS | failed=0/1126400000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 12/32: PASS | failed=0/1228800000 | max_abs=0.000944197 | elapsed_s=10.186
+sample 13/32: PASS | failed=0/1331200000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 14/32: PASS | failed=0/1433600000 | max_abs=0.000944197 | elapsed_s=10.188
+sample 15/32: PASS | failed=0/1536000000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 16/32: PASS | failed=0/1638400000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 17/32: PASS | failed=0/1740800000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 18/32: PASS | failed=0/1843200000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 19/32: PASS | failed=0/1945600000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 20/32: PASS | failed=0/2048000000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 21/32: PASS | failed=0/2150400000 | max_abs=0.000944197 | elapsed_s=10.188
+sample 22/32: PASS | failed=0/2252800000 | max_abs=0.000944197 | elapsed_s=10.188
+sample 23/32: PASS | failed=0/2355200000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 24/32: PASS | failed=0/2457600000 | max_abs=0.000944197 | elapsed_s=10.188
+sample 25/32: PASS | failed=0/2560000000 | max_abs=0.000944197 | elapsed_s=10.188
+sample 26/32: PASS | failed=0/2662400000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 27/32: PASS | failed=0/2764800000 | max_abs=0.000944197 | elapsed_s=10.188
+sample 28/32: PASS | failed=0/2867200000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 29/32: PASS | failed=0/2969600000 | max_abs=0.000944197 | elapsed_s=10.188
+sample 30/32: PASS | failed=0/3072000000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 31/32: PASS | failed=0/3174400000 | max_abs=0.000944197 | elapsed_s=10.187
+sample 32/32: PASS | failed=0/3276800000 | max_abs=0.000944197 | elapsed_s=10.188
+SHAPE14_STAGE_JSON={"allow_tf32": true, "baseline_latency_ms": null, "checkpoint_id": "v16_1", "checkpoint_label": "V16.1 standalone final", "compare_token_chunk": 2048, "compile_mode": "max-autotune", "elapsed_s": 330.7831118470058, "evaluated_batch_samples": 32, "failed": 0, "inner_executor": true, "matmul_precision": "high", "max_abs": 0.0009441971778869629, "max_rel": 151706320.0, "mean_abs": 6.563669754813722e-05, "outer_compile": false, "output_dtype": "torch.float32", "output_shape": [1, 100000, 1024], "peak_allocated_gib": 19.966630458831787, "query_chunk": 256, "resolved_module": "_timeline_v16_1_30478", "seed": 1234, "shape": {"batch_size": 32, "causal": true, "d_model": 1024, "ffn_dim": 1024, "heads": 16, "layers": 2, "seq_len": 100000}, "shape_id": 14, "speedup": null, "stage": "streamed-b32-accuracy", "status": "PASS", "strategy": "inner_executor", "total": 3276800000}
+
