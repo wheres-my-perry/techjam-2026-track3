@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Packed-QKV transformer using PyTorch SDPA."""
+"""V3.1: no-copy packed-QKV SDPA without materialized causal masks."""
 
 import torch
 import torch.nn.functional as F
@@ -14,11 +14,6 @@ class UserOptimizedTransformer(bench.BaselineTransformer):
             attention = layer.attention
             attention.register_buffer("_qkv_weight", torch.empty(0), persistent=False)
             attention.register_buffer("_qkv_bias", torch.empty(0), persistent=False)
-        self.register_buffer(
-            "_causal_mask",
-            torch.ones(config.seq_len, config.seq_len, dtype=torch.bool).tril(),
-            persistent=False,
-        )
         self._refresh_qkv()
 
     def _refresh_qkv(self) -> None:
@@ -37,7 +32,7 @@ class UserOptimizedTransformer(bench.BaselineTransformer):
         return result
 
     @staticmethod
-    def _attention(attention, x, mask, invalid_queries, causal):
+    def _attention(attention, x, mask, causal):
         batch, seq_len, _ = x.shape
         q, k, v = F.linear(
             x, attention._qkv_weight, attention._qkv_bias
@@ -51,14 +46,11 @@ class UserOptimizedTransformer(bench.BaselineTransformer):
             v,
             attn_mask=mask,
             dropout_p=0.0,
-            is_causal=causal and mask is None,
+            is_causal=causal,
             scale=attention.scale,
         )
-        output = attention.out_proj(
+        return attention.out_proj(
             context.transpose(1, 2).reshape(batch, seq_len, attention.d_model)
-        )
-        return output if invalid_queries is None else output.masked_fill(
-            invalid_queries, 0
         )
 
     def forward(self, x, valid_token_mask=None):
@@ -71,21 +63,11 @@ class UserOptimizedTransformer(bench.BaselineTransformer):
             mask = valid_token_mask[:, None, None, :]
             invalid_queries = ~valid_token_mask[..., None]
 
-        if self.config.causal and mask is not None:
-            seq_len = x.shape[1]
-            causal_mask = self._causal_mask
-            if causal_mask.shape != (seq_len, seq_len):
-                causal_mask = torch.ones(
-                    seq_len, seq_len, dtype=torch.bool, device=x.device
-                ).tril()
-            mask = mask & causal_mask
-
         for layer in self.layers:
             x = x + self._attention(
                 layer.attention,
                 layer.norm1(x),
                 mask,
-                invalid_queries,
                 self.config.causal,
             )
             x = x + layer.ffn_out(

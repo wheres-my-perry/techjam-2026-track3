@@ -7,3 +7,4 @@ tmp/
 *.prof
 *.nsys-rep
 benchmark-results/
+profile-results/
