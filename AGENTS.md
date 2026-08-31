@@ -48,12 +48,16 @@ Trước khi sửa code, đọc các tài liệu theo thứ tự sau:
 ## Kiểm tra tối thiểu
 
 ```bash
-python3 -m py_compile main.py matrix_runner.py profile_models.py \
-  torch_transformer_benchmark.py v16_1_clean.py shape14_accuracy.py \
-  shape14_optimized_benchmark.py shape14_profile.py \
-  shape14_fa4_probe.py shape14_sage_probe.py
-python3 matrix_runner.py --list-shapes
-python3 profile_models.py --list-shapes
+python3 -m py_compile main.py tools/matrix_runner.py tools/profile_models.py \
+  torch_transformer_benchmark.py v16_1_clean.py tools/shape14/accuracy.py \
+  tools/shape14/optimized_benchmark.py tools/shape14/profile.py \
+  tools/shape14/fa4_probe.py tools/shape14/sage_probe.py \
+  tools/timeline_adapter.py tools/timeline_runner.py \
+  tools/shape14/checkpoint_worker.py tools/shape14/timeline_runner.py \
+  candidates/v19/*.py
+python3 -m tools.matrix_runner --list-shapes
+python3 -m tools.profile_models --list-shapes
+python3 -m unittest discover -s tests -v
 CUDA_VISIBLE_DEVICES=1 python3 main.py --device cuda:0 --dtype float32 \
   --batch-size 64 --seq-len 128 --d-model 128 \
   --heads 4 --ffn-dim 128 --layers 4 --causal

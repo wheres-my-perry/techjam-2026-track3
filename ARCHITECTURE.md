@@ -14,57 +14,61 @@ Public repository: [wheres-my-perry/techjam-2026-track3](https://github.com/wher
 | `torch_transformer_benchmark.py` | Reference implementation và benchmark harness gốc. |
 | `main.py` | Benchmark entrypoint trỏ tới standalone `v16_1_clean.py`. |
 | `v16_1_clean.py` | Active V16.1: model/config/kernel/cache/executor đầy đủ, không import harness hoặc version cũ. |
-| `v19_CUDAFP16Checkpoint.py` | Experimental V19 trên V16.1: CUDA WMMA FFN-in/GELU accumulate FP16 và checkpoint FP32 theo K; GPU strict PASS nhưng performance regress, không promote. |
-| `v19_parallel_batch_common.py` | Scheduler chung chia large batch thành các range cân bằng và enqueue lên nhiều CUDA stream, không đổi arithmetic/state dict. |
-| `v19_1_0_ParallelBatchV161.py` | Experimental V19.1.0: V16.1 + parallel batch scheduler; GPU tune shape #14 chọn P4 làm measured winner. |
-| `v19_1_1_ParallelBatchV19.py` | Experimental V19.1.1: V19 CUDA arithmetic + cùng scheduler; GPU tune chọn K64/P2 nhưng chậm hơn V19.1.0. |
+| `candidates/` | Candidate chưa promote, đóng gói theo family để không làm bẩn root hoặc ảnh hưởng active import. |
+| `candidates/v19/cuda_fp16_checkpoint.py` | Experimental V19 trên V16.1: CUDA WMMA FFN-in/GELU accumulate FP16 và checkpoint FP32 theo K; GPU strict PASS nhưng performance regress, không promote. |
+| `candidates/v19/parallel_batch_common.py` | Scheduler chung chia large batch thành các range cân bằng và enqueue lên nhiều CUDA stream, không đổi arithmetic/state dict. |
+| `candidates/v19/parallel_batch_v161.py` | Experimental V19.1.0: V16.1 + parallel batch scheduler; GPU tune shape #14 chọn P4 làm measured winner. |
+| `candidates/v19/parallel_batch_v19.py` | Experimental V19.1.1: V19 CUDA arithmetic + cùng scheduler; GPU tune chọn K64/P2 nhưng chậm hơn V19.1.0. |
 | `archive/versions/` | Toàn bộ implementation `v1`–`v18` lịch sử, giữ làm evidence/rollback nhưng không còn là runner target. |
-| `v1_fuseQKV.py` | V1: gộp Q/K/V projection thành một phép `F.linear`. |
-| `v2_SPDA.py` | V2: V1 + PyTorch SDPA. |
-| `v3_SDPA_NoCopy.py` | V3: packed-QKV no-copy + SDPA + flattened model loop. |
-| `v3_1_CausalMask.py` | Candidate FP32 hiện tại: v3 không materialize causal mask và không zero-out padding dư trong attention. |
-| `v4_FP16.py` | V4: GEMM/SDPA FP16 nội bộ, norm/residual/output FP32. |
-| `v4_1_FP16_GELU.py` | V4.1: GELU chạy trực tiếp FP16. |
-| `v4_2_SDPA_Dispatch.py` | V4.2: chọn cuDNN/automatic SDPA theo shape. |
-| `v4_3_Flash.py` | Candidate V4.3 cuối: causal/right-padding bỏ key mask, ưu tiên Flash với cuDNN/Efficient/Math fallback. |
-| `v4_3_flash_clean.py` | Bản V4.3 standalone chỉ chứa config/model Flash-first; không phụ thuộc benchmark harness và không phải runner target. |
-| `v5_1_FP16Accum.py` | V5.1 negative ablation: V4.3 + CUDA full FP16 GEMM accumulation; không promote vì accuracy/performance gate. |
-| `v6_ApproxGELU.py` | V6 ablation: V4.3 + tanh-approximated FP16 GELU; accuracy PASS #1–#13 nhưng chưa có measurable gain. |
-| `v7_ResidualLayerNorm.py` | V7a ablation: pipeline residual + LayerNorm bằng pure PyTorch; Inductor sinh cùng graph V4.3 nên không promote. |
-| `v8_FusedFFNGELU.py` | V8: V4.3 + Triton FFN-in GEMM/bias/exact-GELU cho workload D=FFN=128 từ một triệu token; shape khác fallback V4.3. |
-| `v8_1_FusedFFNGELUAll.py` | V8.1 ablation: ép V8 custom FFN/GELU trên mọi mixed-precision shape để đo dispatcher; không promote unconditional. |
-| `v9_PersistentMLP.py` | V9 ablation: fully fused persistent FFN-in/exact-GELU/FFN-out cho D/FFN≤128; isolated win nhưng whole-model không promote. |
-| `v11_FP32PreGELU.py` | Arithmetic parent/rollback: V8.1 nhưng exact GELU đọc trực tiếp FP32 FFN-in accumulator; GPU #1–#13 PASS. |
-| `v12_FP32FFNOut.py` | V12 ablation: V11 nhưng FFN-out GEMM store trực tiếp FP32 để bỏ output round FP16; local gate PASS, GPU pending. |
-| `v12_1_FP32OutProj.py` | V12.1 ablation: chỉ attention out-projection store trực tiếp FP32; local gate PASS, GPU pending. |
-| `v12_2_FP32ResidualOutputs.py` | V12.2 ablation: cả attention-out và FFN-out store trực tiếp FP32; local gate PASS, GPU pending. |
-| `v13_INT8FFNProbe.py` | V13 accuracy-only ablation: symmetric INT8 FFN-in với per-channel weight/per-token activation scales; official #2 FAIL nên không có kernel/performance path. |
-| `v14_BatchChunked.py` | V14 validated candidate: exact shape-#14 batch chunking trên V11. |
-| `v14_1_BatchChunked.py` | Memory parent/rollback: V11 dưới cutoff; FP32 eval với `S >= 8192`, `B > 1` chạy batch chunk size 1. |
-| `v15_DirectQKVLayout.py` | QKV parent/rollback: exact #13 dùng direct-layout QKV Triton; mọi branch khác kế thừa V14.1. |
-| `v15_1_DirectQKVAll.py` | Cross-shape ablation: force direct-layout QKV cho causal `S<8192`; #1–#12 PASS nhưng chỉ #6 thắng ổn định, không phải main. |
-| `v16_CompiledBatchExecutor.py` | Previous main/QKV rollback: giữ loop #14 eager, compile/reuse thân B=1 và kế thừa direct-QKV #13 từ V15. |
-| `v16_1_NoDirectQKV13.py` | Historical composed V16.1, nay nằm trong `archive/versions/`. |
-| `v17_CompiledBatch2.py` | Experimental: cùng compiled large-sequence executor nhưng batch chunk 2; strict PASS, không promote vì gain chỉ khoảng 0.5%. |
-| `v17_sage.py` | V17-Sage negative ablation: corrected Sage trên V16.1; full #1–#13 fail strict ở #6/#9 nên không promote. |
-| `v18_sage.py` | V18-Sage performance-only ablation: V16.1 + direct automatic Sage SM120; không correction, #8 fallback vì Dh=256. |
-| `v4_mixed_precision_common.py` | Dependency nội bộ của `v4_3_Flash.py`; giữ cache/forward mixed precision. |
-| `v4_1_clean.py` | Bản V4.1 standalone chỉ chứa config/model FP16; không phụ thuộc benchmark harness và không phải runner target. |
-| `matrix_runner.py` | Chạy một implementation trên đúng 14 official shapes và xuất JSON/CSV. |
-| `timeline_adapter.py` | Registry archived checkpoint, dependency hashes, class injection và strict preflight. |
-| `timeline_runner.py` | Chạy full #1–#13 cho historical checkpoints, occurrence controls và drift report. |
-| `shape14_checkpoint_worker.py` | Worker process-isolated cho B1/streamed/native/timing shape #14. |
-| `shape14_timeline_runner.py` | Điều phối Baseline/V16.1 shape #14 theo correctness/native gates. |
-| `profile_models.py` | Accuracy gate, benchmark và PyTorch Profiler/Kineto cho nhiều implementation trên cùng official shape. |
+| `archive/versions/v1_fuseQKV.py` | V1: gộp Q/K/V projection thành một phép `F.linear`. |
+| `archive/versions/v2_SPDA.py` | V2: V1 + PyTorch SDPA. |
+| `archive/versions/v3_SDPA_NoCopy.py` | V3: packed-QKV no-copy + SDPA + flattened model loop. |
+| `archive/versions/v3_1_CausalMask.py` | Candidate FP32 hiện tại: v3 không materialize causal mask và không zero-out padding dư trong attention. |
+| `archive/versions/v4_FP16.py` | V4: GEMM/SDPA FP16 nội bộ, norm/residual/output FP32. |
+| `archive/versions/v4_1_FP16_GELU.py` | V4.1: GELU chạy trực tiếp FP16. |
+| `archive/versions/v4_2_SDPA_Dispatch.py` | V4.2: chọn cuDNN/automatic SDPA theo shape. |
+| `archive/versions/v4_3_Flash.py` | Candidate V4.3 cuối: causal/right-padding bỏ key mask, ưu tiên Flash với cuDNN/Efficient/Math fallback. |
+| `archive/versions/v4_3_flash_clean.py` | Bản V4.3 standalone chỉ chứa config/model Flash-first; không phụ thuộc benchmark harness và không phải runner target. |
+| `archive/versions/v5_1_FP16Accum.py` | V5.1 negative ablation: V4.3 + CUDA full FP16 GEMM accumulation; không promote vì accuracy/performance gate. |
+| `archive/versions/v6_ApproxGELU.py` | V6 ablation: V4.3 + tanh-approximated FP16 GELU; accuracy PASS #1–#13 nhưng chưa có measurable gain. |
+| `archive/versions/v7_ResidualLayerNorm.py` | V7a ablation: pipeline residual + LayerNorm bằng pure PyTorch; Inductor sinh cùng graph V4.3 nên không promote. |
+| `archive/versions/v8_FusedFFNGELU.py` | V8: V4.3 + Triton FFN-in GEMM/bias/exact-GELU cho workload D=FFN=128 từ một triệu token; shape khác fallback V4.3. |
+| `archive/versions/v8_1_FusedFFNGELUAll.py` | V8.1 ablation: ép V8 custom FFN/GELU trên mọi mixed-precision shape để đo dispatcher; không promote unconditional. |
+| `archive/versions/v9_PersistentMLP.py` | V9 ablation: fully fused persistent FFN-in/exact-GELU/FFN-out cho D/FFN≤128; isolated win nhưng whole-model không promote. |
+| `archive/versions/v11_FP32PreGELU.py` | Arithmetic parent/rollback: V8.1 nhưng exact GELU đọc trực tiếp FP32 FFN-in accumulator; GPU #1–#13 PASS. |
+| `archive/versions/v12_FP32FFNOut.py` | V12 ablation: V11 nhưng FFN-out GEMM store trực tiếp FP32 để bỏ output round FP16; local gate PASS, GPU pending. |
+| `archive/versions/v12_1_FP32OutProj.py` | V12.1 ablation: chỉ attention out-projection store trực tiếp FP32; local gate PASS, GPU pending. |
+| `archive/versions/v12_2_FP32ResidualOutputs.py` | V12.2 ablation: cả attention-out và FFN-out store trực tiếp FP32; local gate PASS, GPU pending. |
+| `archive/versions/v13_INT8FFNProbe.py` | V13 accuracy-only ablation: symmetric INT8 FFN-in với per-channel weight/per-token activation scales; official #2 FAIL nên không có kernel/performance path. |
+| `archive/versions/v14_BatchChunked.py` | V14 validated candidate: exact shape-#14 batch chunking trên V11. |
+| `archive/versions/v14_1_BatchChunked.py` | Memory parent/rollback: V11 dưới cutoff; FP32 eval với `S >= 8192`, `B > 1` chạy batch chunk size 1. |
+| `archive/versions/v15_DirectQKVLayout.py` | QKV parent/rollback: exact #13 dùng direct-layout QKV Triton; mọi branch khác kế thừa V14.1. |
+| `archive/versions/v15_1_DirectQKVAll.py` | Cross-shape ablation: force direct-layout QKV cho causal `S<8192`; #1–#12 PASS nhưng chỉ #6 thắng ổn định, không phải main. |
+| `archive/versions/v16_CompiledBatchExecutor.py` | Previous main/QKV rollback: giữ loop #14 eager, compile/reuse thân B=1 và kế thừa direct-QKV #13 từ V15. |
+| `archive/versions/v16_1_NoDirectQKV13.py` | Historical composed V16.1, nay nằm trong `archive/versions/`. |
+| `archive/versions/v17_CompiledBatch2.py` | Experimental: cùng compiled large-sequence executor nhưng batch chunk 2; strict PASS, không promote vì gain chỉ khoảng 0.5%. |
+| `archive/versions/v17_sage.py` | V17-Sage negative ablation: corrected Sage trên V16.1; full #1–#13 fail strict ở #6/#9 nên không promote. |
+| `archive/versions/v18_sage.py` | V18-Sage performance-only ablation: V16.1 + direct automatic Sage SM120; không correction, #8 fallback vì Dh=256. |
+| `archive/versions/v4_mixed_precision_common.py` | Dependency nội bộ của `v4_3_Flash.py`; giữ cache/forward mixed precision. |
+| `archive/versions/v4_1_clean.py` | Bản V4.1 standalone chỉ chứa config/model FP16; không phụ thuộc benchmark harness và không phải runner target. |
+| `tools/matrix_runner.py` | Chạy một implementation trên đúng 14 official shapes và xuất JSON/CSV. |
+| `tools/timeline_adapter.py` | Registry archived checkpoint, dependency hashes, class injection và strict preflight. |
+| `tools/timeline_runner.py` | Chạy full #1–#13 cho historical checkpoints, occurrence controls và drift report. |
+| `tools/shape14/checkpoint_worker.py` | Worker process-isolated cho B1/streamed/native/timing shape #14. |
+| `tools/shape14/timeline_runner.py` | Điều phối Baseline/V16.1 shape #14 theo correctness/native gates. |
+| `tools/profile_models.py` | Accuracy gate, benchmark và PyTorch Profiler/Kineto cho nhiều implementation trên cùng official shape. |
+| `tools/shape14/` | Tool chuyên biệt cho shape #14: memory-bounded correctness, profiling và optimized-only timing. |
+| `tests/` | Unit smoke cho import graph, strict state-dict compatibility và causal/non-causal mask paths. |
+| `docs/` | Tài liệu submission, benchmark timeline và research bổ sung. |
 | `AGENTS.md` | Quy tắc làm việc cho người và coding agent. |
 | `SOLUTION.md` | Technical report đầy đủ cho các implementation hiện tại. |
 | `EXPERIMENTS.md` | Nhật ký phương án, thử nghiệm và kết quả. |
 | `results/final/` | Final active-main JSON/CSV/log và environment manifest được track. |
-| `results/timeline-rtx5090-driver595/` | Full historical matrix, reverse-order evidence và drift report cùng environment. |
-| `results/cross-host-driver580/` | Archive evidence final trên host/driver 580 trước đó. |
+| `results/timeline/` | Full historical matrix, reverse-order evidence và drift report cùng environment. |
+| `results/archive/cross-host-driver580/` | Archive evidence final trên host/driver 580 trước đó. |
+| `runs/` | Artifact local sinh tự động (benchmark/profile/trace/tmp/remote); bị gitignore, trừ `runs/README.md`. |
 | `IMPLEMENTATION_PLAN.md` | Roadmap, phase và trạng thái triển khai. |
 | `DECISION.md` | Nhật ký quyết định kỹ thuật dài hạn. |
-| `tmp/` | Tài liệu/thành phẩm tạm; không thuộc runtime benchmark. |
 
 ## 3. Mô hình Transformer reference
 
@@ -108,16 +112,16 @@ Latency statistics, throughput and median speedup
 
 Nếu accuracy fail, benchmark mặc định dừng. `--benchmark-on-failure` chỉ dùng để điều tra và không tạo kết quả hợp lệ để báo cáo.
 
-`matrix_runner.py` gọi harness trong một subprocess riêng cho mỗi official shape. Cách ly process giúp runner tiếp tục sau accuracy failure, OOM, process crash hoặc timeout; JSON/CSV được ghi lại sau từng case để giữ partial results. Bảng tổng kết terminal hiển thị `max_abs` cạnh status và latency để nhìn nhanh error margin; quyết định PASS/FAIL vẫn dựa trên comparator strict OR và số phần tử fail.
+`tools/matrix_runner.py` gọi harness trong một subprocess riêng cho mỗi official shape. Cách ly process giúp runner tiếp tục sau accuracy failure, OOM, process crash hoặc timeout; JSON/CSV được ghi lại sau từng case để giữ partial results. Bảng tổng kết terminal hiển thị `max_abs` cạnh status và latency để nhìn nhanh error margin; quyết định PASS/FAIL vẫn dựa trên comparator strict OR và số phần tử fail.
 
-`profile_models.py` chạy mỗi implementation trong subprocess riêng để tránh import/global-state nhiễu giữa các version. Mỗi child chạy accuracy gate, đo baseline/optimized bằng cùng workload và CUDA Event, sau đó profile optimized path bằng PyTorch Profiler/Kineto. CLI hỗ trợ `--compile-baseline`, `--compile-user` và `--compile-mode` sau bước copy weight/device/eval giống benchmark harness.
+`tools/profile_models.py` chạy mỗi implementation trong subprocess riêng để tránh import/global-state nhiễu giữa các version. Mỗi child chạy accuracy gate, đo baseline/optimized bằng cùng workload và CUDA Event, sau đó profile optimized path bằng PyTorch Profiler/Kineto. CLI hỗ trợ `--compile-baseline`, `--compile-user` và `--compile-mode` sau bước copy weight/device/eval giống benchmark harness.
 
 Profiler dùng hai schema attribution có chủ đích:
 
 - **Eager:** profiler-only scopes tách pre-attention norm, packed/separate QKV projection, view/reshape, fused attention core, output projection, residual, pre-FFN norm, từng FFN projection, GELU, masking/copy và final norm. Các scope này không đi vào benchmark path.
 - **Compiled:** không monkey-patch ATen/stage scopes sau khi graph đã compile vì thao tác đó có thể làm graph recompile hoặc thay đổi fusion. Thay vào đó, tool tổng hợp raw GPU device events, kernel/memory-event count, Triton event/launch count, `Torch-Compiled Region`, CUDA Graph launch API, steady/peak allocation và top device-event names. `TORCHINDUCTOR_UNIQUE_KERNEL_NAMES=1` được bật trong child để trace dễ audit.
 
-Terminal hiển thị latency cùng GPU/runtime evidence cho cả hai path; bảng ATen category/model stage chỉ xuất cho eager. JSON được lưu vào `profile-results/`, còn Chrome trace chỉ sinh khi bật `--export-traces`.
+Terminal hiển thị latency cùng GPU/runtime evidence cho cả hai path; bảng ATen category/model stage chỉ xuất cho eager. JSON được lưu vào `runs/profiles/`, còn Chrome trace chỉ sinh khi bật `--export-traces`.
 
 ## 5. Dữ liệu và mask
 
@@ -465,7 +469,7 @@ lượt là QKV-only và eager-memory rollback.
 V14.1 scheduler và tránh recursion, nhưng vẫn giữ V15/V11 arithmetic, cache
 lifecycle, cutoff và fallback semantics. B=1 vẫn được support cho batch lẻ.
 
-`shape14_accuracy.py` đọc executor chunk size, chạy optimized group B=2 một
+`tools/shape14/accuracy.py` đọc executor chunk size, chạy optimized group B=2 một
 lần rồi compare từng slice với query-blocked reference B=1. Nhờ vậy full gate
 thật sự kiểm tra graph B=2. RTX 5090/PyTorch 2.11 full #14 PASS
 `0/3,276,800,000`, max abs `0.000944197`. Alternating V16/V17 medians cho V17
@@ -475,14 +479,14 @@ nhanh hơn `0.30–0.59%`, trung bình khoảng `0.515%`, timed peak cùng
 
 ### 10.19 Shape-#14 inner profiler và external attention probes
 
-`shape14_profile.py` profile trực tiếp reusable inner executor thay vì cấp phát
+`tools/shape14/profile.py` profile trực tiếp reusable inner executor thay vì cấp phát
 full B=32. Nó lưu CUDA Event latency, Kineto raw device events, runtime launch
 events, peak memory, source hash và heuristic category attribution vào JSON.
 Kết quả là diagnostic B=1/B=2, không phải official full-forward latency hay
 paired speedup. Backend switch chỉ bao quanh SDPA hiện có để shootout
 Flash/cuDNN/Efficient/Math mà không đổi model.
 
-`shape14_fa4_probe.py` và `shape14_sage_probe.py` cô lập exact causal attention
+`tools/shape14/fa4_probe.py` và `tools/shape14/sage_probe.py` cô lập exact causal attention
 `B1/H16/S100000/Dh64`, dùng QKV distribution thật của V16 khi cần, alternating
 CUDA Event timing và strict elementwise comparator. Hai probe không được dùng
 làm model speedup; chúng chỉ được phép đề cử một version full-model sau khi vừa
@@ -597,12 +601,12 @@ driver `595.71.05` mới chạy lại toàn bộ checkpoint và promote V16.1
 start-control: official #1–#13 strict PASS với geomean `11.803x`; full #14 PASS
 `0/3,276,800,000`, native B32 PASS và optimized-only median `6987.4644 ms`.
 Start/end drift gate 3% PASS. Raw curated evidence nằm ở `results/final/` và
-`results/timeline-rtx5090-driver595/`; driver-580 evidence cũ nằm trong
-`results/cross-host-driver580/`.
+`results/timeline/`; driver-580 evidence cũ nằm trong
+`results/archive/cross-host-driver580/`.
 
 ### 10.26 V19 CUDA checkpointed-FP16 FFN-in
 
-`v19_CUDAFP16Checkpoint.py` kế thừa standalone V16.1 nhưng chỉ override
+`candidates/v19/cuda_fp16_checkpoint.py` kế thừa standalone V16.1 nhưng chỉ override
 `_mixed_ffn()`. FFN-in và exact GELU được thực hiện bởi một extension CUDA C++
 dùng block `64x32`, tám warps và WMMA `16x16x16`; QKV/SDPA, attention-out,
 FFN-out, residual/LayerNorm, cache/state dict, fallback và large-sequence
@@ -622,7 +626,7 @@ promote qua `main.py`.
 
 ### 10.27 V19.1 parallel batch partitions
 
-`v19_parallel_batch_common.py` cung cấp một mixin outer scheduler dùng chung.
+`candidates/v19/parallel_batch_common.py` cung cấp một mixin outer scheduler dùng chung.
 V19.1.0 ghép mixin với V16.1; V19.1.1 ghép nó với V19, nên hai candidate giữ
 nguyên arithmetic của đúng parent và chỉ khác cách schedule official shape #14.
 
@@ -680,7 +684,7 @@ process gọi nó là `cuda:0`. Machine-readable inventory nằm tại
 `results/final/environment.json`.
 
 Evidence driver `580.159.03` trên AMD EPYC 9135/64 GB RAM được giữ riêng trong
-`results/cross-host-driver580/`. Baseline geomean của host driver-595 chậm hơn
+`results/archive/cross-host-driver580/`. Baseline geomean của host driver-595 chậm hơn
 host cũ `72.48%`, còn optimized geomean chậm hơn `15.51%`; vì vậy ratio
 `7.904x → 11.803x` không đại diện thay đổi code.
 

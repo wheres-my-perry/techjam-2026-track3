@@ -4,7 +4,7 @@
 
 **Phase hiện tại:** Phase 6 submission assembly — V16.1 đã được flatten vào
 `v16_1_clean.py`; đây vẫn là active/final implementation. Root hiện có thêm
-candidate versioned `v19_CUDAFP16Checkpoint.py`, nhưng V19 chưa qua CUDA gate và
+candidate versioned `candidates/v19/cuda_fp16_checkpoint.py`, nhưng V19 chưa qua CUDA gate và
 không thay `main.py`.
 File chứa đầy đủ model/config, FP16 cache, Flash-first attention, Triton
 FP32-pre-GELU và compiled executor #14, không import harness hay version cũ.
@@ -16,8 +16,8 @@ predeclared start-control geomean `11.803x`, full #14 strict PASS
 `0/3,276,800,000`, native B32 PASS và optimized-only median `6987.4644 ms`;
 evidence được track trong `results/final/`. Full historical timeline cho 11
 checkpoint và reverse-order repeat đã hoàn tất trong
-`results/timeline-rtx5090-driver595/`. Evidence driver `580.159.03` cũ được
-giữ trong `results/cross-host-driver580/`; chênh `7.904x → 11.803x` không phải
+`results/timeline/`. Evidence driver `580.159.03` cũ được
+giữ trong `results/archive/cross-host-driver580/`; chênh `7.904x → 11.803x` không phải
 code gain vì baseline host mới chậm hơn `72.48%`.
 
 Trước cleanup, Phase 5 — V16.1 đã được promote qua `main.py` theo D-038:
@@ -75,7 +75,7 @@ không executable trên 32 GiB.
 - [x] Có CUDA Event/CPU timing, warmup và alternating measurement order.
 - [x] Có CLI cho shape, dtype, mask, tolerance, compile và TF32.
 - [x] Thêm xuất kết quả máy đọc được (JSON/CSV) qua official matrix runner.
-- [x] Thêm `matrix_runner.py` chạy đúng 14-shape benchmark matrix, tiếp tục qua OOM/error/timeout.
+- [x] Thêm `tools/matrix_runner.py` chạy đúng 14-shape benchmark matrix, tiếp tục qua OOM/error/timeout.
 - [x] Hiển thị `max_abs` trong bảng tổng kết terminal của matrix runner.
 - [x] Thêm metadata môi trường: GPU capability, driver, CUDA, cuDNN, OS, CPU,
   RAM, disk và git revision trong `results/final/environment.json`.
@@ -105,7 +105,7 @@ không executable trên 32 GiB.
 
 ## 6. Phase 3 — Profile và chọn bottleneck
 
-- [x] Thêm `profile_models.py` với accuracy gate, CUDA Event timing, PyTorch Profiler/Kineto, subprocess isolation và JSON/Chrome trace output.
+- [x] Thêm `tools/profile_models.py` với accuracy gate, CUDA Event timing, PyTorch Profiler/Kineto, subprocess isolation và JSON/Chrome trace output.
 - [~] Profile optimized path của v1/v2/v3 trên official shape #1 bằng PyTorch Profiler; baseline operator breakdown và Nsight còn pending.
 - [x] Đã validate raw GPU kernel/device-event count, Triton/compiled-region/CUDA-Graph launch evidence cho compiled V3.1/V4/V4.1 trên official shape #1.
 - [x] Tách category và non-overlapping model stages: QKV/output projection, attention core, từng LayerNorm, FFN in/GELU/out, residual, masking, copy và final norm.
@@ -241,8 +241,11 @@ không executable trên 32 GiB.
 
 ## 9. Phase 6 — Submission
 
-- [~] Dọn repository và thêm `.gitignore`/dependency setup phù hợp; source và
-  result evidence đã sạch, còn dependency install manifest cần chốt.
+- [x] Dọn repository: root chỉ giữ active entrypoints, candidate vào
+  `candidates/`, runner vào `tools/`, supplemental docs vào `docs/`, curated
+  evidence vào `results/`, generated artifacts vào gitignored `runs/`, và thêm
+  import/state-dict/mask-path smoke tests. Dependency install manifest đã có
+  trong `requirements.txt`; clone-clean GPU reproduction vẫn là close-out gate.
 - [x] Viết README cài đặt, chạy và tái lập kết quả.
 - [x] Chốt public repository.
 - [x] Cập nhật `SOLUTION.md` bằng fresh final matrix, environment và raw evidence.
@@ -250,7 +253,7 @@ không executable trên 32 GiB.
   control và reverse-order repeat cho các aggregate chênh dưới 3%.
 - [x] Chạy shape #14 theo scope cuối Baseline/V16.1: static feasibility,
   streamed strict, native B32 và optimized-only timing.
-- [~] Đã tạo `DEVPOST.md` submission-ready; còn điền team contributions và
+- [~] Đã tạo `docs/DEVPOST.md` submission-ready; còn điền team contributions và
   public YouTube URL từ owner.
 - [ ] Quay demo video public trên YouTube.
 - [ ] Kiểm tra licensing/trademark/copyright.

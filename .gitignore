@@ -6,6 +6,10 @@ tmp/
 .DS_Store
 *.prof
 *.nsys-rep
+# Ad-hoc benchmark, profiler, trace, temporary, and remote-capture output.
+runs/*
+!runs/README.md
+# Legacy output locations remain ignored so older commands cannot dirty Git.
 benchmark-results/
 profile-results/
 # Historical ad-hoc remote captures may contain an endpoint in their path.

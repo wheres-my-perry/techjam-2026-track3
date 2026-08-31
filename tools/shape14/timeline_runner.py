@@ -16,19 +16,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
-from timeline_adapter import (
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from tools.timeline_adapter import (
     CHECKPOINTS,
     PRIMARY_CHECKPOINTS,
     checkpoint_manifest,
     resolve_checkpoint,
     sha256_file,
 )
-from timeline_runner import git_revision, gpu_inventory, gpu_is_idle, runtime_inventory
+from tools.timeline_runner import git_revision, gpu_inventory, gpu_is_idle, runtime_inventory
 
 
-ROOT = Path(__file__).resolve().parent
-WORKER = ROOT / "shape14_checkpoint_worker.py"
-ADAPTER = ROOT / "timeline_adapter.py"
+ROOT = Path(__file__).resolve().parents[2]
+WORKER = Path(__file__).resolve().with_name("checkpoint_worker.py")
+ADAPTER = ROOT / "tools" / "timeline_adapter.py"
 RESULT_MARKER = "SHAPE14_STAGE_JSON="
 STAGE_ORDER = (
     "b1-accuracy",
@@ -80,7 +85,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=ROOT / "benchmark-results" / "timeline-rtx5090-driver595",
+        default=ROOT / "runs" / "benchmarks" / "timeline",
     )
     parser.add_argument("--run-id")
     parser.add_argument("--environment-id", default="unlocked")
@@ -103,7 +108,8 @@ def selected_checkpoints(value: str) -> list[str]:
 def worker_command(args: argparse.Namespace, checkpoint_id: str, stage: str) -> list[str]:
     return [
         args.python,
-        str(WORKER),
+        "-m",
+        "tools.shape14.checkpoint_worker",
         "--checkpoint",
         checkpoint_id,
         "--stage",
@@ -202,7 +208,8 @@ def run_stage(args: argparse.Namespace, checkpoint_id: str, stage: str) -> dict:
 def preflight(args: argparse.Namespace, checkpoint_id: str) -> dict:
     command = [
         args.python,
-        str(ADAPTER),
+        "-m",
+        "tools.timeline_adapter",
         "--checkpoint",
         checkpoint_id,
         "--preflight-only",

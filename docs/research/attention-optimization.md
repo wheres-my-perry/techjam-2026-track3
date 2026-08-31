@@ -695,7 +695,7 @@ từ complexity.
 
 Các số trên là exact-shape inner/isolated diagnostics hoặc B=1 accuracy
 canary. Original baseline full #14 vẫn không executable trên 32 GiB, nên không
-có paired official speedup. Artifacts nằm trong `profile-results/` và quy trình
+có paired official speedup. Artifacts nằm trong `runs/profiles/` và quy trình
 đầy đủ ở `EXPERIMENTS.md` §17–18.
 
 ### 18.4 Những gì chưa làm

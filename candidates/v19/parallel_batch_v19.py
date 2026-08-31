@@ -3,12 +3,20 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import torch_transformer_benchmark as bench
-from v19_CUDAFP16Checkpoint import (
+from candidates.v19.cuda_fp16_checkpoint import (
     TransformerConfig,
     UserOptimizedTransformer as V19Transformer,
 )
-from v19_parallel_batch_common import ParallelBatchPartitionsMixin
+from candidates.v19.parallel_batch_common import ParallelBatchPartitionsMixin
 
 
 __all__ = ["TransformerConfig", "UserOptimizedTransformer"]

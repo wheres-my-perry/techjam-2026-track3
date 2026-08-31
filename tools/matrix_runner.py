@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 IMPLEMENTATIONS = {
     "main": "main.py",
     "best": "main.py",
@@ -24,13 +24,13 @@ IMPLEMENTATIONS = {
     "v16_1": "main.py",
     "v16.1.clean": "main.py",
     "v16_1_clean": "main.py",
-    "v19": "v19_CUDAFP16Checkpoint.py",
-    "v19.cuda": "v19_CUDAFP16Checkpoint.py",
-    "v19_cuda": "v19_CUDAFP16Checkpoint.py",
-    "v19.1.0": "v19_1_0_ParallelBatchV161.py",
-    "v19_1_0": "v19_1_0_ParallelBatchV161.py",
-    "v19.1.1": "v19_1_1_ParallelBatchV19.py",
-    "v19_1_1": "v19_1_1_ParallelBatchV19.py",
+    "v19": "candidates/v19/cuda_fp16_checkpoint.py",
+    "v19.cuda": "candidates/v19/cuda_fp16_checkpoint.py",
+    "v19_cuda": "candidates/v19/cuda_fp16_checkpoint.py",
+    "v19.1.0": "candidates/v19/parallel_batch_v161.py",
+    "v19_1_0": "candidates/v19/parallel_batch_v161.py",
+    "v19.1.1": "candidates/v19/parallel_batch_v19.py",
+    "v19_1_1": "candidates/v19/parallel_batch_v19.py",
 }
 
 
@@ -150,7 +150,7 @@ def parse_args() -> argparse.Namespace:
         default="default",
     )
     parser.add_argument(
-        "--output-dir", type=Path, default=ROOT / "benchmark-results"
+        "--output-dir", type=Path, default=ROOT / "runs" / "benchmarks"
     )
     return parser.parse_args()
 

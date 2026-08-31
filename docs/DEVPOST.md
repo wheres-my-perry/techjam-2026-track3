@@ -400,9 +400,9 @@ as a performance baseline.
 The environment manifest and final raw JSON, CSV, and logs are published in
 [`results/final/`](https://github.com/wheres-my-perry/techjam-2026-track3/tree/main/results/final).
 The complete same-host chronology is available in the
-[`benchmark timeline report`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/BENCHMARK_TIMELINE_REPORT.md),
+[`benchmark timeline report`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/docs/benchmark-timeline/REPORT.md),
 with its
-[`curated timeline artifacts`](https://github.com/wheres-my-perry/techjam-2026-track3/tree/main/results/timeline-rtx5090-driver595).
+[`curated timeline artifacts`](https://github.com/wheres-my-perry/techjam-2026-track3/tree/main/results/timeline).
 
 ## Ideas explored but not included in the final solution
 
@@ -413,7 +413,7 @@ experiment history is in the
 [`technical report`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/SOLUTION.md),
 [`experiment log`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/EXPERIMENTS.md),
 and
-[`attention research report`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/ATTENTION_OPTIMIZATION_RESEARCH.md).
+[`attention research report`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/docs/research/attention-optimization.md).
 
 ### Rejected by the correctness gate
 
@@ -510,7 +510,7 @@ steady-state latency excludes compile/autotune cold start.
 ## Future work
 
 Our roadmap comes from the measured follow-up and candidate catalogue in the
-[`attention optimization research report`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/ATTENTION_OPTIMIZATION_RESEARCH.md).
+[`attention optimization research report`](https://github.com/wheres-my-perry/techjam-2026-track3/blob/main/docs/research/attention-optimization.md).
 It is deliberately ordered by evidence rather than novelty. Every candidate
 would keep the same strict comparator and public interface, and would need an
 end-to-end win after layout, quantization, compilation, and memory costs—not
@@ -560,14 +560,14 @@ Public repository:
 
 ```bash
 # Official shapes #1–#13 using the historical-checkpoint adapter.
-CUDA_VISIBLE_DEVICES=0 python3 timeline_runner.py --checkpoints v16_1 \
+CUDA_VISIBLE_DEVICES=0 python3 -m tools.timeline_runner --checkpoints v16_1 \
   --shape-ids 1-13 \
   --device cuda:0 --dtype float32 --accuracy-trials 5 \
   --warmup 20 --repeats 100 --benchmark-rounds 3 \
   --compile-mode max-autotune
 
 # Shape #14: reference feasibility record and final-submission gates/timing.
-CUDA_VISIBLE_DEVICES=0 python3 shape14_timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 python3 -m tools.shape14.timeline_runner \
   --checkpoints baseline,v16_1 --device cuda:0 --batch-limit 32 \
   --query-chunk 256 --compare-token-chunk 2048 --seed 1234 \
   --warmup 1 --repeats 5 --compile-mode max-autotune

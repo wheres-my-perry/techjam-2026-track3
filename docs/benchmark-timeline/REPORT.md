@@ -133,13 +133,13 @@ V4.1–V11 dependency `archive/versions/v4_mixed_precision_common.py` có SHA-25
 
 Runner hashes dùng trong actual run:
 
-- `timeline_runner.py`:
+- `tools/timeline_runner.py`:
   `0956cd5dc914b87e3134ab966870adc8912e60e4dd55d7392ae135efad858606`.
-- `timeline_adapter.py`:
+- `tools/timeline_adapter.py`:
   `b0ee017fc9f283fdd39535b8518606904be6675bc8819c2d486ea794d644f8a0`.
-- `shape14_timeline_runner.py`:
+- `tools/shape14/timeline_runner.py`:
   `d46d2462ae8d845bf96980203623d5ddc9a655e5dbe68056185df5b2820dfa88`.
-- `shape14_checkpoint_worker.py`:
+- `tools/shape14/checkpoint_worker.py`:
   `79260eb4e2b46d4719d2498fbb746fb1a66cb86e34261f157a2f4aa9b4437025`.
 
 ### 4.2 Preflight result
@@ -215,7 +215,7 @@ Score chỉ được công bố khi cả 13 rows strict PASS.
 ### 7.1 Chronological sweep và V16.1 controls
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.timeline_runner \
   --python /venv/main/bin/python \
   --checkpoints v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1 \
   --shape-ids 1-13 --device cuda:0 --dtype float32 \
@@ -230,7 +230,7 @@ CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
 ### 7.2 Reverse-order full matrices
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.timeline_runner \
   --python /venv/main/bin/python \
   --checkpoints v16_1,v11,v8,v4_3,v4_2,v4_1 --shape-ids 1-13 \
   --device cuda:0 --dtype float32 --accuracy-trials 5 \
@@ -244,7 +244,7 @@ CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
 ### 7.3 Shape #14 Baseline/V16.1
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python shape14_timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.shape14.timeline_runner \
   --python /venv/main/bin/python --checkpoints baseline,v16_1 \
   --device cuda:0 --seed 1234 --batch-limit 32 \
   --query-chunk 256 --compare-token-chunk 2048 \
@@ -518,22 +518,22 @@ latency tuyệt đối cũng chậm hơn. Vì vậy:
 > `7.904x → 11.803x` là cross-host ratio effect, không phải code improvement.
 
 Historical driver-580 evidence được giữ nguyên trong
-`results/cross-host-driver580/`; không trộn row từ hai host vào cùng aggregate.
+`results/archive/cross-host-driver580/`; không trộn row từ hai host vào cùng aggregate.
 
 ## 15. Artifact inventory
 
 ### 15.1 Raw, ignored
 
 ```text
-benchmark-results/timeline-rtx5090-driver595/full14-preflight-venv/
-benchmark-results/timeline-rtx5090-driver595/full14-sweep-r1/
-benchmark-results/timeline-rtx5090-driver595/full14-reverse-r1/
+runs/benchmarks/timeline/full14-preflight-venv/
+runs/benchmarks/timeline/full14-sweep-r1/
+runs/benchmarks/timeline/full14-reverse-r1/
 ```
 
 ### 15.2 Curated timeline
 
 ```text
-results/timeline-rtx5090-driver595/
+results/timeline/
 ├── environment.json
 ├── run_metadata.json
 ├── timeline_summary.json
@@ -627,11 +627,11 @@ làm cross-host archive, không diễn giải thành code delta.
 
 ## 19. Nguồn dữ liệu chính
 
-- `results/timeline-rtx5090-driver595/timeline_summary.json`
-- `results/timeline-rtx5090-driver595/control_drift.json`
-- `results/timeline-rtx5090-driver595/full/`
-- `results/timeline-rtx5090-driver595/reverse/`
-- `results/timeline-rtx5090-driver595/shape14/shape14_matrix.json`
+- `results/timeline/timeline_summary.json`
+- `results/timeline/control_drift.json`
+- `results/timeline/full/`
+- `results/timeline/reverse/`
+- `results/timeline/shape14/shape14_matrix.json`
 - `results/final/main_shapes_1_13.json`
 - `results/final/main_shape14_summary.json`
 - `results/final/environment.json`

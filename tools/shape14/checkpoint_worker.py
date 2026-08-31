@@ -11,20 +11,27 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import sys
 import time
 import traceback
 from dataclasses import replace
+from pathlib import Path
 from typing import Any, Sequence
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 import torch
 
-from shape14_accuracy import (
+from tools.shape14.accuracy import (
     SHAPE14,
     StreamingAccuracy,
     memory_bounded_baseline,
     update_accuracy,
 )
-from timeline_adapter import CHECKPOINTS, load_checkpoint, resolve_checkpoint
+from tools.timeline_adapter import CHECKPOINTS, load_checkpoint, resolve_checkpoint
 
 
 RESULT_MARKER = "SHAPE14_STAGE_JSON="

@@ -21,12 +21,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import torch
 import torch.nn.functional as F
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def parse_args() -> argparse.Namespace:
@@ -122,7 +127,7 @@ def strict_compare(
 
 def default_output_path() -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return ROOT / "profile-results" / f"shape14_fa4_probe_{timestamp}.json"
+    return ROOT / "runs" / "profiles" / f"shape14_fa4_probe_{timestamp}.json"
 
 
 def main() -> int:
@@ -130,7 +135,7 @@ def main() -> int:
     validate_args(args)
     device = torch.device(args.device)
     if device.type != "cuda" or not torch.cuda.is_available():
-        raise SystemExit("shape14_fa4_probe.py requires an available CUDA device")
+        raise SystemExit("tools.shape14.fa4_probe requires an available CUDA device")
 
     try:
         from flash_attn.cute import flash_attn_func

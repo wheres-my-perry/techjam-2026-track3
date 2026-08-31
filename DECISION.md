@@ -271,14 +271,14 @@ Các official shapes có chênh lệch workload rất lớn; shape #6 và #14 c�
 
 ### Quyết định
 
-`matrix_runner.py` chạy từng official shape bằng một subprocess độc lập, áp timeout theo case và ghi JSON/CSV sau mỗi lần chạy. Runner tiếp tục qua accuracy failure, nonzero exit, OOM/kill và timeout; exit code cuối khác 0 nếu matrix không PASS toàn bộ.
+`tools/matrix_runner.py` chạy từng official shape bằng một subprocess độc lập, áp timeout theo case và ghi JSON/CSV sau mỗi lần chạy. Runner tiếp tục qua accuracy failure, nonzero exit, OOM/kill và timeout; exit code cuối khác 0 nếu matrix không PASS toàn bộ.
 
 ### Hệ quả
 
 - Partial results vẫn tồn tại khi shape lớn thất bại.
 - Mỗi row giữ full command và raw output để audit.
 - Process startup không nằm trong CUDA Event latency của child benchmark.
-- `benchmark-results/` là artifact sinh tự động và không được commit mặc định.
+- `runs/benchmarks/` là artifact sinh tự động và không được commit mặc định.
 
 ## D-014 — V3.1 dùng causal flag thay cho materialized causal mask
 
@@ -310,7 +310,7 @@ Profiler ban đầu gắn `record_function` quanh `F.linear`, LayerNorm, GELU v�
 
 ### Quyết định
 
-`profile_models.py` giữ hai schema riêng:
+`tools/profile_models.py` giữ hai schema riêng:
 
 - Eager dùng ATen category và non-overlapping model-stage scopes hiện tại.
 - Compiled dùng raw GPU device events và runtime evidence: device/kernel/memory-event count, Triton event/launch count, `Torch-Compiled Region`, CUDA Graph launch API, top device events và steady/peak CUDA allocation.
@@ -770,7 +770,7 @@ score khoảng `18.6 TiB`. B=1 full-sequence V11 chạy được với peak `2.9
 - Tạo `v14_BatchChunked.py`: chỉ exact config #14 FP32 eval causal mới chạy
   từng batch sample qua đủ hai layer rồi ghi vào output preallocated.
 - Không sửa baseline, workload, tolerance hoặc comparator. Accuracy dùng
-  `shape14_accuracy.py`, giữ formula nhưng query-block reference để bounded memory.
+  `tools/shape14/accuracy.py`, giữ formula nhưng query-block reference để bounded memory.
 - Chưa đổi `main.py`: scorer output lifetime, repeated-call cleanup và
   `torch.compile` behavior cần được kiểm tra trước promotion.
 - Latency #14 chỉ báo optimized-only với baseline/speedup N/A; không suy speedup
@@ -976,7 +976,7 @@ nhất cho isolated upside đáng kể (`1.3933x`), nhưng direct attention còn
 - Không benchmark full-model V18 sau khi strict B=1 canary fail. Một external
   kernel chỉ được mở lại khi accuracy pass trước và compiled wrapper chứng minh
   eager/compiled equivalence bằng `torch.library.opcheck` cùng output compare.
-- Giữ `shape14_profile.py`, FA4 probe và Sage probe làm reproducible selection
+- Giữ `tools/shape14/profile.py`, FA4 probe và Sage probe làm reproducible selection
   harness; isolated kernel timing không được gọi là model speedup.
 
 ### Evidence
@@ -1090,7 +1090,7 @@ rồi overwrite `False`. Dù graph sạch, source còn dead test-based condition
   exact official tuple.
 - Không refactor stable V16/main thành mixin trong lượt này để tránh mở rộng
   regression surface; duplication nhỏ trong control được chấp nhận và ghi rõ.
-- Thêm `v16.1` vào `shape14_accuracy.py` để accuracy gate đúng executor mới.
+- Thêm `v16.1` vào `tools/shape14/accuracy.py` để accuracy gate đúng executor mới.
 
 ### Evidence
 
@@ -1346,7 +1346,7 @@ policy thay vì lặp lại global flag.
 
 ### Quyết định
 
-- Tạo `v19_CUDAFP16Checkpoint.py` trên standalone V16.1 và chỉ thay
+- Tạo `candidates/v19/cuda_fp16_checkpoint.py` trên standalone V16.1 và chỉ thay
   `FFN-in -> exact GELU` bằng CUDA WMMA. Default checkpoint K=32; K=16/64/128
   và FP32 control giữ cùng block/layout/epilogue.
 - Không bật `allow_fp16_accumulation`; QKV, attention, FFN-out,
@@ -1396,7 +1396,7 @@ với static buffers.
   worker stream xử lý tuần tự các sample B=1 trong range.
 - Parts>1 bắt buộc inner Inductor mode `max-autotune-no-cudagraphs`. Stream cache
   là runtime-only và bị xóa cùng executor cache sau load/move/config change.
-- `shape14_accuracy.py` gọi candidate theo group bằng số parts khi B>1 để
+- `tools/shape14/accuracy.py` gọi candidate theo group bằng số parts khi B>1 để
   correctness gate đi qua outer scheduler nhưng không giữ full B32 output trong
   lúc dựng memory-bounded reference.
 - Không đổi `main.py`. Tăng parts tuần tự trên GPU idle và dừng tại OOM/memory
@@ -1415,7 +1415,7 @@ với static buffers.
   controls `1.51–1.66%`.
 - V19.1.1 K64/P2 full PASS nhưng two-order average `7179.4322 ms`; V19.1.0
   P4 là overall winner. Raw evidence ở
-  `results/v19-tune-rtx5090-driver595-20260901/`.
+  `results/experiments/v19-tuning-20260901/`.
 
 ### Hệ quả
 
@@ -1451,8 +1451,8 @@ RAM khác; vì vậy không được ghép latency hai host như một ablation 
 - Theo scope cuối của owner, shape #14 chỉ có Baseline static-infeasible và
   V16.1 B1/streamed/native/timing; không report #14 cho checkpoint lịch sử.
 - Promote artifacts vào `results/final/` và
-  `results/timeline-rtx5090-driver595/`; giữ D-043 evidence nguyên vẹn trong
-  `results/cross-host-driver580/`.
+  `results/timeline/`; giữ D-043 evidence nguyên vẹn trong
+  `results/archive/cross-host-driver580/`.
 
 ### Evidence
 
@@ -1476,3 +1476,36 @@ RAM khác; vì vậy không được ghép latency hai host như một ablation 
   phải code improvement.
 - Mọi so sánh version trong timeline dùng cùng driver-595 host/protocol; số
   D-043 chỉ dùng làm cross-host audit.
+
+## D-047 — Tách active source, candidate, tooling, docs, evidence và local runs
+
+**Trạng thái:** Accepted; repository organization only, no algorithm change
+**Ngày:** 2026-09-01
+
+### Bối cảnh
+
+Root đã tích lũy runner, shape-#14 utility, V19 prototype, submission docs và
+artifact local cạnh ba file runtime quan trọng. Cách bố trí đó làm active path
+khó nhận biết, tăng nguy cơ commit nhầm profiler/remote output và khiến import
+phụ thuộc working directory.
+
+### Quyết định
+
+- Root chỉ giữ `main.py`, `v16_1_clean.py`, baseline và canonical project docs.
+- Candidate chưa promote nằm trong `candidates/<family>/`; V19 chuyển vào
+  `candidates/v19/` và dùng package imports.
+- Runner nằm trong package `tools/`; utility riêng cho official #14 nằm trong
+  `tools/shape14/`. Command canonical là `python -m tools...` từ repository root.
+- Supplemental report/research nằm trong `docs/`; chỉ evidence đã review được
+  track dưới `results/{final,timeline,experiments,archive}`.
+- Output sinh tự động đi vào gitignored `runs/`; thêm smoke tests cho import,
+  strict state-dict compatibility và causal/non-causal mask paths.
+
+### Hệ quả
+
+- `main.py`, public interface, baseline, comparator, official workload và số
+  benchmark không đổi; đây không phải optimization hoặc performance claim mới.
+- Script vẫn bootstrap repository root khi chạy bằng path để tương thích, nhưng
+  docs và automation dùng module entrypoints nhằm có import semantics ổn định.
+- Thêm candidate/tool mới phải theo package hiện có; artifact chỉ được promote
+  từ `runs/` sang `results/` sau review và ghi rõ environment/command.

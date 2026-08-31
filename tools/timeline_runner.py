@@ -17,8 +17,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
-import matrix_runner
-from timeline_adapter import (
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from tools import matrix_runner
+from tools.timeline_adapter import (
     CHECKPOINTS,
     PRIMARY_CHECKPOINTS,
     checkpoint_manifest,
@@ -28,8 +33,8 @@ from timeline_adapter import (
 )
 
 
-ROOT = Path(__file__).resolve().parent
-ADAPTER = ROOT / "timeline_adapter.py"
+ROOT = Path(__file__).resolve().parents[1]
+ADAPTER = Path(__file__).resolve().with_name("timeline_adapter.py")
 CSV_FIELDS = ("checkpoint_id", "checkpoint_label", *matrix_runner.CSV_FIELDS)
 
 
@@ -73,7 +78,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=ROOT / "benchmark-results" / "timeline-rtx5090-driver595",
+        default=ROOT / "runs" / "benchmarks" / "timeline",
     )
     parser.add_argument("--run-id")
     parser.add_argument("--environment-id", default="unlocked")
@@ -128,7 +133,8 @@ def selected_timeline_shapes(value: str) -> list[matrix_runner.Shape]:
     if not ids or invalid:
         raise ValueError(
             "timeline_runner supports only shapes #1-#13; use "
-            f"shape14_timeline_runner.py for #14 (invalid: {sorted(invalid)})"
+            "tools.shape14.timeline_runner for #14 "
+            f"(invalid: {sorted(invalid)})"
         )
     return [shape for shape in matrix_runner.SHAPES if shape.id in ids]
 
@@ -202,7 +208,8 @@ def build_benchmark_command(args, checkpoint_id: str, shape) -> list[str]:
     spec = resolve_checkpoint(checkpoint_id)
     command = [
         args.python,
-        str(ADAPTER),
+        "-m",
+        "tools.timeline_adapter",
         "--checkpoint",
         checkpoint_id,
         "--device",
@@ -246,7 +253,8 @@ def build_benchmark_command(args, checkpoint_id: str, shape) -> list[str]:
 def run_preflight(args, checkpoint_id: str) -> dict:
     command = (
         args.python,
-        str(ADAPTER),
+        "-m",
+        "tools.timeline_adapter",
         "--checkpoint",
         checkpoint_id,
         "--preflight-only",

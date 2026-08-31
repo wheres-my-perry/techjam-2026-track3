@@ -16,9 +16,16 @@ standalone V16.1 artifact.  Select an ablation with
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import warnings
+from pathlib import Path
 from typing import Optional
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import torch
 import torch.nn.functional as F

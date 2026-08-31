@@ -30,8 +30,8 @@ The final submission uses one active implementation:
 Its only runtime dependencies are PyTorch and optional Triton. Historical
 `v1`–`v18` files are preserved under `archive/versions/`; they are not active
 runner aliases. Their results and decisions remain in `EXPERIMENTS.md`,
-`SOLUTION.md` and `DECISION.md`. The root-level `v19*.py` files are unpromoted
-research prototypes and are not imported by `main.py` or used for the final
+`SOLUTION.md` and `DECISION.md`. Unpromoted V19 research prototypes live under
+`candidates/v19/`; they are not imported by `main.py` or used for the final
 results.
 
 The active algorithm keeps LayerNorm, residuals and public output in FP32;
@@ -61,12 +61,12 @@ driver `595.71.05`. The run used PyTorch `2.11.0+cu128`, CUDA `12.8`, cuDNN
 The commands, complete per-shape table, environment manifest and raw evidence
 are checked in under [`results/final/`](results/final/README.md).
 The full 11-checkpoint timeline and reverse-order repeats are under
-[`results/timeline-rtx5090-driver595/`](results/timeline-rtx5090-driver595/README.md).
+[`results/timeline/`](results/timeline/README.md).
 The complete execution report, including all checkpoint/shape speedups,
 correctness failures, drift controls, source hashes and shape-#14 stages, is in
-[`BENCHMARK_TIMELINE_REPORT.md`](BENCHMARK_TIMELINE_REPORT.md).
+[`docs/benchmark-timeline/REPORT.md`](docs/benchmark-timeline/REPORT.md).
 Earlier driver-580 evidence remains archived under
-[`results/cross-host-driver580/`](results/cross-host-driver580/README.md). The
+[`results/archive/cross-host-driver580/`](results/archive/cross-host-driver580/README.md). The
 ratio change from `7.904x` to `11.803x` is not a code improvement: the new
 host's baseline geomean was `72.48%` slower while optimized geomean was
 `15.51%` slower.
@@ -108,15 +108,15 @@ cases PyTorch addresses the one visible GPU as `cuda:0`.
 ### 1. Run the preflight checks
 
 ```bash
-python3 -m py_compile main.py matrix_runner.py profile_models.py \
-  torch_transformer_benchmark.py v16_1_clean.py shape14_accuracy.py \
-  shape14_optimized_benchmark.py shape14_profile.py \
-  shape14_fa4_probe.py shape14_sage_probe.py timeline_adapter.py \
-  timeline_runner.py shape14_checkpoint_worker.py shape14_timeline_runner.py
-python3 matrix_runner.py --list-shapes
-python3 profile_models.py --list-shapes
-python3 timeline_runner.py --list-checkpoints
-python3 shape14_timeline_runner.py --list-checkpoints
+python3 -m py_compile main.py tools/matrix_runner.py tools/profile_models.py \
+  torch_transformer_benchmark.py v16_1_clean.py tools/shape14/accuracy.py \
+  tools/shape14/optimized_benchmark.py tools/shape14/profile.py \
+  tools/shape14/fa4_probe.py tools/shape14/sage_probe.py tools/timeline_adapter.py \
+  tools/timeline_runner.py tools/shape14/checkpoint_worker.py tools/shape14/timeline_runner.py
+python3 -m tools.matrix_runner --list-shapes
+python3 -m tools.profile_models --list-shapes
+python3 -m tools.timeline_runner --list-checkpoints
+python3 -m tools.shape14.timeline_runner --list-checkpoints
 ```
 
 ### 2. Run a short official-shape smoke test
@@ -131,7 +131,7 @@ CUDA_VISIBLE_DEVICES=0 python3 main.py \
 ### 3. Reproduce official shapes #1–#13
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python3 timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 python3 -m tools.timeline_runner \
   --checkpoints v16_1 \
   --shape-ids 1-13 \
   --device cuda:0 --dtype float32 \
@@ -153,7 +153,7 @@ an approximately 18.6 TiB attention-score tensor. Run the full memory-bounded
 correctness check first:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python3 shape14_timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 python3 -m tools.shape14.timeline_runner \
   --checkpoints baseline,v16_1 --device cuda:0 --seed 1234 \
   --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 \
   --warmup 1 --repeats 5 --compile-mode max-autotune
@@ -171,7 +171,7 @@ logs, JSON/CSV outputs and the environment manifest are in
 The same-host cumulative sweep, including start/end drift controls, uses:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python3 timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 python3 -m tools.timeline_runner \
   --checkpoints v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1 \
   --shape-ids 1-13 \
   --device cuda:0 --dtype float32 --accuracy-trials 5 \
@@ -182,7 +182,7 @@ CUDA_VISIBLE_DEVICES=0 python3 timeline_runner.py \
 
 This is the run that produced the cumulative checkpoint table, the `11.803x`
 start control, the `11.838x` end control and the passing 3% drift gate. See
-[`BENCHMARK_TIMELINE_REPORT.md`](BENCHMARK_TIMELINE_REPORT.md) for the full
+[`docs/benchmark-timeline/REPORT.md`](docs/benchmark-timeline/REPORT.md) for the full
 forward/reverse results and the failed-candidate audit trail.
 
 ## Standalone use
@@ -220,12 +220,12 @@ used to omit the causal key mask.
 Run the active syntax and orchestration checks:
 
 ```bash
-python3 -m py_compile main.py matrix_runner.py profile_models.py \
-  torch_transformer_benchmark.py v16_1_clean.py shape14_accuracy.py \
-  shape14_optimized_benchmark.py shape14_profile.py \
-  shape14_fa4_probe.py shape14_sage_probe.py
-python3 matrix_runner.py --list-shapes
-python3 profile_models.py --list-shapes
+python3 -m py_compile main.py tools/matrix_runner.py tools/profile_models.py \
+  torch_transformer_benchmark.py v16_1_clean.py tools/shape14/accuracy.py \
+  tools/shape14/optimized_benchmark.py tools/shape14/profile.py \
+  tools/shape14/fa4_probe.py tools/shape14/sage_probe.py
+python3 -m tools.matrix_runner --list-shapes
+python3 -m tools.profile_models --list-shapes
 ```
 
 The standalone cleanup has passed local strict state-dict checks, bitwise
@@ -259,20 +259,23 @@ CUDA Event benchmark. See [`results/final/`](results/final/README.md).
 | `v16_1_clean.py` | Only active optimized implementation |
 | `main.py` | Official single-shape benchmark adapter |
 | `torch_transformer_benchmark.py` | Baseline/reference oracle |
-| `matrix_runner.py` | Isolated runner for the 14 official shapes |
-| `profile_models.py` | Accuracy, timing and profiler runner |
-| `shape14_accuracy.py` | Memory-bounded strict accuracy for shape #14 |
-| `shape14_optimized_benchmark.py` | Optimized-only shape-#14 timing |
-| `timeline_adapter.py` | Archived-checkpoint registry, injection and preflight |
-| `timeline_runner.py` | Full #1–#13 checkpoint sweep and drift controls |
-| `shape14_timeline_runner.py` | Isolated Baseline/V16.1 shape-#14 stages |
-| `BENCHMARK_TIMELINE_REPORT.md` | Complete driver-595 benchmark execution report |
-| `ATTENTION_OPTIMIZATION_RESEARCH.md` | Evidence-ranked attention follow-up catalogue |
-| `DEVPOST.md` | Submission-ready project narrative and team contribution record |
+| `tools/matrix_runner.py` | Isolated runner for the 14 official shapes |
+| `tools/profile_models.py` | Accuracy, timing and profiler runner |
+| `tools/shape14/accuracy.py` | Memory-bounded strict accuracy for shape #14 |
+| `tools/shape14/optimized_benchmark.py` | Optimized-only shape-#14 timing |
+| `tools/timeline_adapter.py` | Archived-checkpoint registry, injection and preflight |
+| `tools/timeline_runner.py` | Full #1–#13 checkpoint sweep and drift controls |
+| `tools/shape14/timeline_runner.py` | Isolated Baseline/V16.1 shape-#14 stages |
+| `docs/benchmark-timeline/REPORT.md` | Complete driver-595 benchmark execution report |
+| `docs/research/attention-optimization.md` | Evidence-ranked attention follow-up catalogue |
+| `docs/DEVPOST.md` | Submission-ready project narrative and team contribution record |
 | `results/final/` | Checked-in final environment and benchmark evidence |
-| `results/timeline-rtx5090-driver595/` | Curated timeline and reverse-order evidence |
-| `v19*.py` | Unpromoted scheduling/precision research prototypes |
+| `results/timeline/` | Curated timeline and reverse-order evidence |
+| `results/experiments/` | Curated evidence for unpromoted candidates |
+| `candidates/v19/` | Unpromoted scheduling/precision research prototypes |
 | `archive/versions/` | Historical implementation and opcheck files |
+| `runs/` | Gitignored generated benchmark, profile, trace and temporary output |
+| `tests/` | Import, state-dict and mask-path smoke tests |
 | `STATEMENT.md` | Competition statement and official shapes |
 | `ARCHITECTURE.md` | Runtime and repository architecture |
 | `EXPERIMENTS.md` | Commands and measured experiment log |
@@ -305,7 +308,7 @@ cold-start/backend validation. Accuracy-protected
 low-precision islands and custom SM120 attention remain deferred until the
 exact library and layout paths have been measured end to end. The
 evidence-ranked roadmap is in
-[`ATTENTION_OPTIMIZATION_RESEARCH.md`](ATTENTION_OPTIMIZATION_RESEARCH.md), and
+[`docs/research/attention-optimization.md`](docs/research/attention-optimization.md), and
 the detailed reflection is in [`SOLUTION.md`](SOLUTION.md).
 
 ## Team member contributions
@@ -322,7 +325,7 @@ the detailed reflection is in [`SOLUTION.md`](SOLUTION.md).
   team's Track 5 project.
 
 A Devpost-ready project description is available in
-[`DEVPOST.md`](DEVPOST.md). The public demo-video URL is still pending there.
+[`docs/DEVPOST.md`](docs/DEVPOST.md). The public demo-video URL is still pending there.
 
 Performance results are valid only when baseline and optimized runs use the
 same GPU, dtype, official shape, seed, warmup, repeats, compile configuration

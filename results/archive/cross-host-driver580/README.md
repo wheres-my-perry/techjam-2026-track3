@@ -28,7 +28,7 @@ The exact machine-readable inventory is in `environment.json`.
 Command:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python matrix_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.matrix_runner \
   --impl main \
   --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --device cuda:0 --dtype float32 \
@@ -56,7 +56,7 @@ memory-bounded reference for correctness and reports optimized-only latency.
 Full strict accuracy command:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python shape14_accuracy.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.shape14.accuracy \
   --device cuda:0 --impl main --batch-limit 32 \
   --query-chunk 256 --compare-token-chunk 2048 \
   --seed 1234 --compile-mode max-autotune
@@ -74,7 +74,7 @@ these messages are not a model OOM or an accuracy failure.
 Optimized-only timing command:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python shape14_optimized_benchmark.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.shape14.optimized_benchmark \
   --device cuda:0 --impl main --warmup 1 --repeats 5 \
   --compile-mode max-autotune
 ```

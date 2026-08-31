@@ -15,20 +15,27 @@ schedule of the reference implementation.
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 import torch
 import torch.nn.functional as F
 
 import torch_transformer_benchmark as bench
 from v16_1_clean import UserOptimizedTransformer as V161Transformer
-from v19_CUDAFP16Checkpoint import UserOptimizedTransformer as V19Transformer
-from v19_1_0_ParallelBatchV161 import (
+from candidates.v19.cuda_fp16_checkpoint import UserOptimizedTransformer as V19Transformer
+from candidates.v19.parallel_batch_v161 import (
     UserOptimizedTransformer as V1910Transformer,
 )
-from v19_1_1_ParallelBatchV19 import (
+from candidates.v19.parallel_batch_v19 import (
     UserOptimizedTransformer as V1911Transformer,
 )
 

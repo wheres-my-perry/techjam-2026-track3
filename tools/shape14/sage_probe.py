@@ -19,16 +19,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import torch
 import torch.nn.functional as F
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 import torch_transformer_benchmark as bench
-from shape14_fa4_probe import strict_compare, summarize, timed_call
+from tools.shape14.fa4_probe import strict_compare, summarize, timed_call
 from v16_1_clean import UserOptimizedTransformer as V161Transformer
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 SAGE_COMMIT = "d1a57a546c3d395b1ffcbeecc66d81db76f3b4b5"
 SHAPE14 = bench.TransformerConfig(32, 100_000, 1024, 16, 1024, 2, True)
 PREFIX_CUTOFFS = (
@@ -216,7 +221,7 @@ def strict_failure_locality(
 
 def default_output_path() -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return ROOT / "profile-results" / f"shape14_sage_probe_{timestamp}.json"
+    return ROOT / "runs" / "profiles" / f"shape14_sage_probe_{timestamp}.json"
 
 
 def main() -> int:
@@ -224,7 +229,7 @@ def main() -> int:
     validate_args(args)
     device = torch.device(args.device)
     if device.type != "cuda" or not torch.cuda.is_available():
-        raise SystemExit("shape14_sage_probe.py requires an available CUDA device")
+        raise SystemExit("tools.shape14.sage_probe requires an available CUDA device")
 
     try:
         from sageattention import (

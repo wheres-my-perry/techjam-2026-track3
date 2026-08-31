@@ -4,7 +4,7 @@
 This is deliberately not a full-forward benchmark. It allocates only the
 standalone V16.1 large-sequence executor batch (B=1), so the result is a
 memory-safe kernel-attribution diagnostic. Full shape-#14 latency remains the
-responsibility of ``shape14_optimized_benchmark.py``.
+responsibility of ``python -m tools.shape14.optimized_benchmark``.
 """
 
 from __future__ import annotations
@@ -22,26 +22,31 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import torch
 from torch.nn.attention import SDPBackend
 from torch.profiler import ProfilerActivity, profile
 
 import torch_transformer_benchmark as bench
-from profile_models import device_event_profile, runtime_event_profile
+from tools.profile_models import device_event_profile, runtime_event_profile
 from v16_1_clean import (
     FLASH_FIRST_BACKENDS,
     UserOptimizedTransformer as V161Transformer,
 )
-from v19_CUDAFP16Checkpoint import UserOptimizedTransformer as V19Transformer
-from v19_1_0_ParallelBatchV161 import (
+from candidates.v19.cuda_fp16_checkpoint import UserOptimizedTransformer as V19Transformer
+from candidates.v19.parallel_batch_v161 import (
     UserOptimizedTransformer as V1910Transformer,
 )
-from v19_1_1_ParallelBatchV19 import (
+from candidates.v19.parallel_batch_v19 import (
     UserOptimizedTransformer as V1911Transformer,
 )
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 SHAPE14 = bench.TransformerConfig(32, 100_000, 1024, 16, 1024, 2, True)
 IMPLEMENTATIONS = {
     "main": (V161Transformer, ROOT / "v16_1_clean.py"),
@@ -49,13 +54,13 @@ IMPLEMENTATIONS = {
     "v16_1": (V161Transformer, ROOT / "v16_1_clean.py"),
     "v16.1.clean": (V161Transformer, ROOT / "v16_1_clean.py"),
     "v16_1_clean": (V161Transformer, ROOT / "v16_1_clean.py"),
-    "v19": (V19Transformer, ROOT / "v19_CUDAFP16Checkpoint.py"),
-    "v19.cuda": (V19Transformer, ROOT / "v19_CUDAFP16Checkpoint.py"),
-    "v19_cuda": (V19Transformer, ROOT / "v19_CUDAFP16Checkpoint.py"),
-    "v19.1.0": (V1910Transformer, ROOT / "v19_1_0_ParallelBatchV161.py"),
-    "v19_1_0": (V1910Transformer, ROOT / "v19_1_0_ParallelBatchV161.py"),
-    "v19.1.1": (V1911Transformer, ROOT / "v19_1_1_ParallelBatchV19.py"),
-    "v19_1_1": (V1911Transformer, ROOT / "v19_1_1_ParallelBatchV19.py"),
+    "v19": (V19Transformer, ROOT / "candidates/v19/cuda_fp16_checkpoint.py"),
+    "v19.cuda": (V19Transformer, ROOT / "candidates/v19/cuda_fp16_checkpoint.py"),
+    "v19_cuda": (V19Transformer, ROOT / "candidates/v19/cuda_fp16_checkpoint.py"),
+    "v19.1.0": (V1910Transformer, ROOT / "candidates/v19/parallel_batch_v161.py"),
+    "v19_1_0": (V1910Transformer, ROOT / "candidates/v19/parallel_batch_v161.py"),
+    "v19.1.1": (V1911Transformer, ROOT / "candidates/v19/parallel_batch_v19.py"),
+    "v19_1_1": (V1911Transformer, ROOT / "candidates/v19/parallel_batch_v19.py"),
 }
 SDPA_BACKENDS = {
     "flash": SDPBackend.FLASH_ATTENTION,
@@ -314,7 +319,8 @@ def default_output_path(implementation: str, sdpa_backend: str) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return (
         ROOT
-        / "profile-results"
+        / "runs"
+        / "profiles"
         / f"shape14_inner_{implementation}_{sdpa_backend}_{timestamp}.json"
     )
 
@@ -324,7 +330,7 @@ def main() -> int:
     validate_args(args)
     device = torch.device(args.device)
     if device.type != "cuda" or not torch.cuda.is_available():
-        raise SystemExit("shape14_profile.py requires an available CUDA device")
+        raise SystemExit("tools.shape14.profile requires an available CUDA device")
 
     transformer_class, implementation_path = IMPLEMENTATIONS[args.impl]
     torch.manual_seed(args.seed)

@@ -23,7 +23,7 @@ The exact machine-readable inventory is in `environment.json`.
 Command:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.timeline_runner \
   --python /venv/main/bin/python \
   --checkpoints v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1 \
   --shape-ids 1-13 \
@@ -44,7 +44,7 @@ per-shape speedup ranged from `2.379x` to `38.762x`. The end-control measured
 `0.458%`, so the 3% drift gate passed.
 
 The earlier driver-580 evidence is preserved under
-`results/cross-host-driver580/`. Its baseline geomean was `72.48%` faster than
+`results/archive/cross-host-driver580/`. Its baseline geomean was `72.48%` faster than
 the driver-595 baseline, while its optimized geomean was `15.51%` faster.
 Therefore `7.904x → 11.803x` is a cross-host ratio change, not a code gain.
 
@@ -62,7 +62,7 @@ memory-bounded reference for correctness and reports optimized-only latency.
 Full strict accuracy command:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python shape14_timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.shape14.timeline_runner \
   --python /venv/main/bin/python --checkpoints baseline,v16_1 \
   --device cuda:0 --seed 1234 --batch-limit 32 \
   --query-chunk 256 --compare-token-chunk 2048 --warmup 1 --repeats 5 \

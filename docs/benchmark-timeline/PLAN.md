@@ -37,7 +37,7 @@ và credential không được ghi vào repository.
 
 ## 3. Tooling
 
-### `timeline_adapter.py`
+### `tools/timeline_adapter.py`
 
 - Registry checkpoint và dependency chain.
 - Load mỗi archived implementation trong process riêng, thêm
@@ -48,7 +48,7 @@ và credential không được ghi vào repository.
   bitwise weight equivalence.
 - Manifest lưu resolved class/module, compile policy và SHA-256 source/dependency.
 
-### `timeline_runner.py`
+### `tools/timeline_runner.py`
 
 - Default `--shape-ids 1-13`; shape #14 bị từ chối và phải dùng runner riêng.
 - Hỗ trợ `--checkpoints`, ranges trong `--shape-ids`, `--list-checkpoints`,
@@ -61,7 +61,7 @@ và credential không được ghi vào repository.
 - Sinh `control_drift.json` cho baseline/optimized geomean và heavy shapes
   #6/#8/#13.
 
-### `shape14_checkpoint_worker.py` và `shape14_timeline_runner.py`
+### `tools/shape14/checkpoint_worker.py` và `tools/shape14/timeline_runner.py`
 
 - Bốn stage process-isolated:
   `b1-accuracy → streamed-b32-accuracy → native-b32-probe → native-timing`.
@@ -131,7 +131,7 @@ dùng làm baseline performance. Native probe gọi nguyên V16.1 forward trên 
 Full chronological sweep và controls:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.timeline_runner \
   --python /venv/main/bin/python \
   --checkpoints v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1 \
   --shape-ids 1-13 --device cuda:0 --dtype float32 \
@@ -146,7 +146,7 @@ CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
 Reverse order:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.timeline_runner \
   --python /venv/main/bin/python \
   --checkpoints v16_1,v11,v8,v4_3,v4_2,v4_1 --shape-ids 1-13 \
   --device cuda:0 --dtype float32 --accuracy-trials 5 \
@@ -160,7 +160,7 @@ CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python timeline_runner.py \
 Shape #14:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python shape14_timeline_runner.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.shape14.timeline_runner \
   --python /venv/main/bin/python --checkpoints baseline,v16_1 \
   --device cuda:0 --seed 1234 --batch-limit 32 \
   --query-chunk 256 --compare-token-chunk 2048 \
@@ -213,10 +213,10 @@ chênh `7.904x → 11.803x` là code improvement.
 ## 8. Artifacts và acceptance
 
 - Raw ignored:
-  `benchmark-results/timeline-rtx5090-driver595/{full14-sweep-r1,full14-reverse-r1,full14-preflight-venv}/`.
-- Curated timeline: `results/timeline-rtx5090-driver595/`.
+  `runs/benchmarks/timeline/{full14-sweep-r1,full14-reverse-r1,full14-preflight-venv}/`.
+- Curated timeline: `results/timeline/`.
 - Promoted final: `results/final/`.
-- Driver-580 evidence: `results/cross-host-driver580/`.
+- Driver-580 evidence: `results/archive/cross-host-driver580/`.
 
 Acceptance status:
 

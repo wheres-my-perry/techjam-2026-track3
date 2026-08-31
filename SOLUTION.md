@@ -10,48 +10,54 @@ relative_error < 0.02 OR absolute_error < 0.002
 
 Hai phép so sánh đều dùng dấu `<` nghiêm ngặt và được kiểm tra trên từng phần tử output. Correctness là cổng bắt buộc: candidate chỉ được benchmark sau khi accuracy pass.
 
+Root chỉ giữ submission-critical entrypoints và canonical project documents.
+Các candidate chưa promote nằm trong `candidates/`, runner trong `tools/`,
+tài liệu bổ sung trong `docs/`, evidence được curate trong `results/`, còn
+artifact sinh tự động đi vào gitignored `runs/`. Việc tổ chức lại này không đổi
+thuật toán, comparator, official workload hoặc các số benchmark đã đo.
+
 Hiện repository có chuỗi implementation phiên bản hóa cùng execution configuration compiled:
 
 | Phiên bản | Tối ưu chính | Vai trò hiện tại |
 |---|---|---|
 | `main.py` | Benchmark wrapper import standalone V16.1 clean | Final benchmark entrypoint; #1–#14 strict PASS |
 | `v16_1_clean.py` | Toàn bộ V16.1 model/config/kernel/cache/executor trong một file | Active standalone artifact; driver-595 #1–#13 geomean 11.803x |
-| `v1_fuseQKV.py` | Gộp ba projection Q/K/V thành một `F.linear` | Bản tối ưu đơn giản, dùng để cô lập lợi ích của QKV fusion |
-| `v2_SPDA.py` | V1 + PyTorch SDPA | Ablation đo riêng tác động của SDPA |
-| `v3_SDPA_NoCopy.py` | Packed QKV không-copy + SDPA + whole-model loop | Ablation trước v3.1 |
-| `v3_1_CausalMask.py` | V3 + causal flag trực tiếp + một padding zero mỗi block | Historical FP32 ablation |
+| `archive/versions/v1_fuseQKV.py` | Gộp ba projection Q/K/V thành một `F.linear` | Bản tối ưu đơn giản, dùng để cô lập lợi ích của QKV fusion |
+| `archive/versions/v2_SPDA.py` | V1 + PyTorch SDPA | Ablation đo riêng tác động của SDPA |
+| `archive/versions/v3_SDPA_NoCopy.py` | Packed QKV không-copy + SDPA + whole-model loop | Ablation trước v3.1 |
+| `archive/versions/v3_1_CausalMask.py` | V3 + causal flag trực tiếp + một padding zero mỗi block | Historical FP32 ablation |
 | V3.1 + `torch.compile` | Whole-model Inductor compile; `reduce-overhead` ablation | Historical compile ablation trên official shape #1 |
-| `v4_FP16.py` | FP16 internal GEMM+SDPA, FP32 norm/residual/output | Shape #1 PASS |
-| `v4_1_FP16_GELU.py` | V4 FP16 + GELU trực tiếp FP16 để bỏ conversion kernels | Eager ablation PASS; compiled trùng hiệu năng V4 |
-| `v4_2_SDPA_Dispatch.py` | V4.1 + static per-shape cuDNN/automatic SDPA dispatch | PASS #1–#13; geomean 7.58x, shape #14 pending |
-| `v4_3_Flash.py` | Causal right-padding mask elision + Flash-first với cuDNN/Efficient/Math fallback | PASS #1–#13; max-autotune geomean 9.53x, shape #14 pending |
-| `v4_3_flash_clean.py` | Standalone V4.3 config/model, không benchmark dependency | Strict state dict và local graph-equivalence smoke PASS |
-| `v5_1_FP16Accum.py` | V4.3 + full FP16 accumulation cho eligible CUDA GEMM | Negative ablation: accuracy fail, không promote |
-| `v6_ApproxGELU.py` | V4.3 + tanh-approximated FP16 GELU | Accuracy PASS #1–#13; paired gain nằm trong noise, không promote |
-| `v7_ResidualLayerNorm.py` | V4.3 + pipelined residual/LayerNorm boundary | Correctness gate PASS; compiled graph trùng V4.3, không promote |
-| `v8_FusedFFNGELU.py` | V4.3 + Triton FFN-in GEMM/bias/exact-GELU có shape dispatch | PASS #1–#13; #6 giảm `4.76%` latency so với V4.3, shape khác fallback |
-| `v8_1_FusedFFNGELUAll.py` | V8 force custom FFN/GELU trên mọi shape | PASS #1–#13; geomean giảm khoảng 1%, nhưng có per-shape regression/noise nên không promote |
-| `v9_PersistentMLP.py` | Fully fused persistent FFN-in/exact-GELU/FFN-out | Isolated win 1.18–1.59x và PASS #1–#13; whole-model không thắng ổn định, không promote |
-| `v11_FP32PreGELU.py` | V8.1 + exact GELU trực tiếp từ FP32 FFN-in accumulator | Arithmetic path/rollback; GPU #1–#13 PASS |
-| `v12_FP32FFNOut.py` | V11 + FFN-out GEMM store trực tiếp FP32 | Experimental ablation; local gate PASS, GPU accuracy/performance pending |
-| `v12_1_FP32OutProj.py` | V11 + attention out-projection store trực tiếp FP32 | Experimental ablation; local gate PASS, GPU pending |
-| `v12_2_FP32ResidualOutputs.py` | V11 + cả hai residual-branch projection output FP32 | Experimental ablation; local gate PASS, GPU pending |
-| `v13_INT8FFNProbe.py` | V11 + accuracy-only symmetric INT8 FFN-in simulation | Negative ablation: official #2 FAIL cả W8/A8/W8A8; không viết kernel/benchmark |
-| `v14_BatchChunked.py` | V11 + exact batch-independent chunking cho shape #14 | Strict #14 PASS `0/3.2768B`; optimized-only median `6683.9873 ms`, paired speedup N/A |
-| `v14_1_BatchChunked.py` | V11 + large-sequence cutoff dispatcher | Parent/rollback; `S < 8192` dùng V11, FP32 eval `S >= 8192` batch-chunk |
-| `v15_DirectQKVLayout.py` | V14.1 + exact-#13 Triton QKV ghi thẳng layout cho Flash | QKV parent/rollback; paired #13 win hai orders |
-| `v15_1_DirectQKVAll.py` | V15 force direct-layout QKV cho causal `S<8192` | Cross-shape ablation; #1–#12 PASS, chỉ #6 thắng ổn định, không promote force-all |
-| `v16_CompiledBatchExecutor.py` | V15 + compiled/reused B=1 executor trong eager loop #14 | Previous main/direct-QKV rollback; full #14 strict PASS và latency giảm `3.11–3.61%` |
-| `v16_1_NoDirectQKV13.py` | Historical composed V16.1, nay trong archive | Superseded về packaging bởi `v16_1_clean.py` |
-| `v17_CompiledBatch2.py` | V16 + compiled executor B=2 cho #14 | Experimental; full strict PASS, gain chỉ `0.30–0.59%`, không promote |
-| `v17_sage.py` | V16.1 + corrected SageAttention cross-shape | Negative ablation; full #1–#13 fail strict ở #6/#9 |
-| `v18_sage.py` | V16.1 + direct automatic SageAttention SM120 | Performance-only diagnostic; không correction, không đổi main |
-| `v19_CUDAFP16Checkpoint.py` | V16.1 + CUDA WMMA FP16 accumulate, checkpoint partial sum sang FP32 theo K | GPU PASS correctness nhưng regress; không promote |
-| `v19_1_0_ParallelBatchV161.py` | V16.1 + multi-stream parallel partitions cho large batch | P4 measured winner #14; full strict PASS, chưa đổi main |
-| `v19_1_1_ParallelBatchV19.py` | V19 arithmetic + cùng multi-stream batch scheduler | K64/P2 PASS nhưng chậm hơn V19.1.0 P4 |
-| `shape14_accuracy.py` | Query-blocked reference + streaming strict comparator | Accuracy-only harness cho #14; không dùng để claim baseline latency |
-| `shape14_optimized_benchmark.py` | CUDA Event optimized-only diagnostic | Tái lập latency #14 khi original baseline cần score ~18.6 TiB |
-| `v4_1_clean.py` | Standalone V4.1 config/model, không benchmark dependency | Import/presentation artifact; graph-equivalent local validation PASS |
+| `archive/versions/v4_FP16.py` | FP16 internal GEMM+SDPA, FP32 norm/residual/output | Shape #1 PASS |
+| `archive/versions/v4_1_FP16_GELU.py` | V4 FP16 + GELU trực tiếp FP16 để bỏ conversion kernels | Eager ablation PASS; compiled trùng hiệu năng V4 |
+| `archive/versions/v4_2_SDPA_Dispatch.py` | V4.1 + static per-shape cuDNN/automatic SDPA dispatch | PASS #1–#13; geomean 7.58x, shape #14 pending |
+| `archive/versions/v4_3_Flash.py` | Causal right-padding mask elision + Flash-first với cuDNN/Efficient/Math fallback | PASS #1–#13; max-autotune geomean 9.53x, shape #14 pending |
+| `archive/versions/v4_3_flash_clean.py` | Standalone V4.3 config/model, không benchmark dependency | Strict state dict và local graph-equivalence smoke PASS |
+| `archive/versions/v5_1_FP16Accum.py` | V4.3 + full FP16 accumulation cho eligible CUDA GEMM | Negative ablation: accuracy fail, không promote |
+| `archive/versions/v6_ApproxGELU.py` | V4.3 + tanh-approximated FP16 GELU | Accuracy PASS #1–#13; paired gain nằm trong noise, không promote |
+| `archive/versions/v7_ResidualLayerNorm.py` | V4.3 + pipelined residual/LayerNorm boundary | Correctness gate PASS; compiled graph trùng V4.3, không promote |
+| `archive/versions/v8_FusedFFNGELU.py` | V4.3 + Triton FFN-in GEMM/bias/exact-GELU có shape dispatch | PASS #1–#13; #6 giảm `4.76%` latency so với V4.3, shape khác fallback |
+| `archive/versions/v8_1_FusedFFNGELUAll.py` | V8 force custom FFN/GELU trên mọi shape | PASS #1–#13; geomean giảm khoảng 1%, nhưng có per-shape regression/noise nên không promote |
+| `archive/versions/v9_PersistentMLP.py` | Fully fused persistent FFN-in/exact-GELU/FFN-out | Isolated win 1.18–1.59x và PASS #1–#13; whole-model không thắng ổn định, không promote |
+| `archive/versions/v11_FP32PreGELU.py` | V8.1 + exact GELU trực tiếp từ FP32 FFN-in accumulator | Arithmetic path/rollback; GPU #1–#13 PASS |
+| `archive/versions/v12_FP32FFNOut.py` | V11 + FFN-out GEMM store trực tiếp FP32 | Experimental ablation; local gate PASS, GPU accuracy/performance pending |
+| `archive/versions/v12_1_FP32OutProj.py` | V11 + attention out-projection store trực tiếp FP32 | Experimental ablation; local gate PASS, GPU pending |
+| `archive/versions/v12_2_FP32ResidualOutputs.py` | V11 + cả hai residual-branch projection output FP32 | Experimental ablation; local gate PASS, GPU pending |
+| `archive/versions/v13_INT8FFNProbe.py` | V11 + accuracy-only symmetric INT8 FFN-in simulation | Negative ablation: official #2 FAIL cả W8/A8/W8A8; không viết kernel/benchmark |
+| `archive/versions/v14_BatchChunked.py` | V11 + exact batch-independent chunking cho shape #14 | Strict #14 PASS `0/3.2768B`; optimized-only median `6683.9873 ms`, paired speedup N/A |
+| `archive/versions/v14_1_BatchChunked.py` | V11 + large-sequence cutoff dispatcher | Parent/rollback; `S < 8192` dùng V11, FP32 eval `S >= 8192` batch-chunk |
+| `archive/versions/v15_DirectQKVLayout.py` | V14.1 + exact-#13 Triton QKV ghi thẳng layout cho Flash | QKV parent/rollback; paired #13 win hai orders |
+| `archive/versions/v15_1_DirectQKVAll.py` | V15 force direct-layout QKV cho causal `S<8192` | Cross-shape ablation; #1–#12 PASS, chỉ #6 thắng ổn định, không promote force-all |
+| `archive/versions/v16_CompiledBatchExecutor.py` | V15 + compiled/reused B=1 executor trong eager loop #14 | Previous main/direct-QKV rollback; full #14 strict PASS và latency giảm `3.11–3.61%` |
+| `archive/versions/v16_1_NoDirectQKV13.py` | Historical composed V16.1, nay trong archive | Superseded về packaging bởi `v16_1_clean.py` |
+| `archive/versions/v17_CompiledBatch2.py` | V16 + compiled executor B=2 cho #14 | Experimental; full strict PASS, gain chỉ `0.30–0.59%`, không promote |
+| `archive/versions/v17_sage.py` | V16.1 + corrected SageAttention cross-shape | Negative ablation; full #1–#13 fail strict ở #6/#9 |
+| `archive/versions/v18_sage.py` | V16.1 + direct automatic SageAttention SM120 | Performance-only diagnostic; không correction, không đổi main |
+| `candidates/v19/cuda_fp16_checkpoint.py` | V16.1 + CUDA WMMA FP16 accumulate, checkpoint partial sum sang FP32 theo K | GPU PASS correctness nhưng regress; không promote |
+| `candidates/v19/parallel_batch_v161.py` | V16.1 + multi-stream parallel partitions cho large batch | P4 measured winner #14; full strict PASS, chưa đổi main |
+| `candidates/v19/parallel_batch_v19.py` | V19 arithmetic + cùng multi-stream batch scheduler | K64/P2 PASS nhưng chậm hơn V19.1.0 P4 |
+| `tools/shape14/accuracy.py` | Query-blocked reference + streaming strict comparator | Accuracy-only harness cho #14; không dùng để claim baseline latency |
+| `tools/shape14/optimized_benchmark.py` | CUDA Event optimized-only diagnostic | Tái lập latency #14 khi original baseline cần score ~18.6 TiB |
+| `archive/versions/v4_1_clean.py` | Standalone V4.1 config/model, không benchmark dependency | Import/presentation artifact; graph-equivalent local validation PASS |
 
 `torch_transformer_benchmark.py` là baseline/reference và benchmark harness. Baseline không bị sửa để tạo speedup hoặc nới correctness.
 
@@ -62,8 +68,9 @@ Environment và raw evidence nằm trong `results/final/`; driver-580 evidence
 `7.904x` được giữ làm cross-host archive, không phải code baseline cho ratio mới.
 
 Từ D-042, toàn bộ implementation lịch sử nằm trong `archive/versions/`. Root
-giữ final `v16_1_clean.py` cùng experimental V19 mới; V16.1 không import
-benchmark harness hoặc version cũ, còn V19 kế thừa nó có chủ đích cho ablation.
+giữ final `v16_1_clean.py`; experimental V19 nằm trong `candidates/v19/`.
+V16.1 không import benchmark harness hoặc version cũ, còn V19 kế thừa nó có
+chủ đích cho ablation.
 Việc archive không thay đổi các kết quả lịch sử được trình bày bên dưới.
 
 Performance benchmark chỉ được xem là chính thức khi chạy đúng một trong 14 test shapes ở Appendix của đề. Shape khác vẫn có thể dùng cho correctness hoặc ablation, nhưng phải ghi rõ là **non-official diagnostic**.
@@ -663,7 +670,7 @@ Trên RTX 5090 physical index `1`, một `B=1/S=100000` probe peak `2.964 GiB`.
 Full V14 forward sinh đúng FP32 output `[32,100000,1024]`, peak `28.526 GiB` và
 first-call wall time `8.974 s`. Original baseline không thể làm accuracy trực
 tiếp vì score `[32,16,100000,100000]` cần khoảng `18.6 TiB`, nên
-`shape14_accuracy.py` giữ nguyên baseline formula nhưng chia Q thành block 256,
+`tools/shape14/accuracy.py` giữ nguyên baseline formula nhưng chia Q thành block 256,
 chạy một batch sample mỗi lần và apply nguyên strict comparator theo token
 chunks. Reduced-shape equivalence với original baseline có max abs
 `3.576e-7`, strict failed `0`.
@@ -926,7 +933,7 @@ V19 vì vậy bị reject cho promotion.
 
 V19.1 thử song song hóa outer batch loop của large-sequence path thay vì đổi
 executor B=1 bên trong. V19.1.0 kế thừa V16.1; V19.1.1 kế thừa V19. Cả hai dùng
-chung `v19_parallel_batch_common.py`, nên comparison với parent cô lập đúng chi
+chung `candidates/v19/parallel_batch_common.py`, nên comparison với parent cô lập đúng chi
 phí/lợi ích của scheduler.
 
 Env `TECHJAM_V19_PARALLEL_PARTS=1|2|4|8|16|32` chọn số partition, mặc định 2.
@@ -948,7 +955,7 @@ V19.1.0 chọn P4: full #14 strict PASS `0/3,276,800,000`, max abs
 `1.51–1.66%` so với V16.1 P1 cùng no-CUDA-Graph policy. V19.1.1 K64/P2 cũng
 full PASS nhưng two-order average `7179.4322 ms`, chậm hơn V19.1.0. `main.py`
 chưa đổi; raw evidence nằm trong
-`results/v19-tune-rtx5090-driver595-20260901/`.
+`results/experiments/v19-tuning-20260901/`.
 
 ## 7. Correctness validation
 
@@ -1214,7 +1221,7 @@ repeats `100`, rounds `3`; mọi row PASS strict accuracy:
 Geomean speedup là `9.5266x`, tăng `11.83%` so với matrix reduce-overhead
 `8.5186x`; geomean optimized latency giảm `9.73%`. Đây là compile steady-state,
 không gồm autotune/compile time. Artifact:
-`benchmark-results/matrix_v4_3_Flash_float32_20260828T124033Z.json`.
+`runs/benchmarks/matrix_v4_3_Flash_float32_20260828T124033Z.json`.
 
 ### 8.9 V7 residual + LayerNorm paired ablation
 
@@ -1250,8 +1257,8 @@ Full V8 #1–#13 matrix (`accuracy=5`, warmup/repeats/rounds `20/100/3`) PASS
 tất cả shape, geomean speedup `9.775x`; #6 đạt `25.3436 ms`. Paired #6 là
 performance evidence chính vì so candidate trong cùng process; matrix xác nhận
 dispatcher không làm hỏng correctness hoặc các shape fallback. Artifacts:
-`profile-results/profile_shape06_20260828T151245Z.json` và
-`benchmark-results/matrix_v8_FusedFFNGELU_float32_20260828T151419Z.json`.
+`runs/profiles/profile_shape06_20260828T151245Z.json` và
+`runs/benchmarks/matrix_v8_FusedFFNGELU_float32_20260828T151419Z.json`.
 
 ### 8.11 V8.1 force-all paired comparison
 
@@ -1279,11 +1286,11 @@ internal, max-autotune. #1–#5/#7–#13 dùng accuracy/warmup/repeats/rounds
 Geomean latency giảm `1.365%` và `0.969%` theo hai orders. V8.1 thường giảm
 3–4 GPU kernels nhưng không Pareto-win mọi shape, nên không thay V8 dispatcher.
 Representative artifacts:
-`profile-results/profile_shape01_20260828T162815Z.json`,
-`profile-results/profile_shape01_20260828T163337Z.json`,
-`profile-results/profile_shape12_20260828T163158Z.json`,
-`profile-results/profile_shape12_20260828T163717Z.json`, và
-`profile-results/profile_shape06_20260828T163922Z.json`.
+`runs/profiles/profile_shape01_20260828T162815Z.json`,
+`runs/profiles/profile_shape01_20260828T163337Z.json`,
+`runs/profiles/profile_shape12_20260828T163158Z.json`,
+`runs/profiles/profile_shape12_20260828T163717Z.json`, và
+`runs/profiles/profile_shape06_20260828T163922Z.json`.
 
 ### 8.12 V9 persistent full-MLP ablation
 
@@ -1304,9 +1311,9 @@ internal, max-autotune. Isolated FFN CUDA-event sweep cho speedup từ `1.179x`
 Shape #6 triple paired cho V4.3/V8/V9 lần lượt
 `26.6497/25.4071/25.4481 ms`, raw GPU `26.6522/25.3974/25.4512 ms`, kernels
 `32/29/25`. V9 không cải thiện current best path dù fuse nhiều hơn. Artifacts:
-`profile-results/profile_shape07_20260828T171520Z.json`,
-`profile-results/profile_shape07_20260828T171738Z.json`, và
-`profile-results/profile_shape06_20260828T171913Z.json`.
+`runs/profiles/profile_shape07_20260828T171520Z.json`,
+`runs/profiles/profile_shape07_20260828T171738Z.json`, và
+`runs/profiles/profile_shape06_20260828T171913Z.json`.
 
 ### 8.13 Historical non-official diagnostics
 
@@ -1352,10 +1359,10 @@ Flash device time gần như không đổi, do đó đây là QKV/projection-lay
 không phải Flash-kernel speedup.
 
 Artifacts chính:
-`profile-results/profile_shape13_20260830T034815Z.json` và
-`profile-results/profile_shape13_20260830T035041Z.json`. Official #2/#12
+`runs/profiles/profile_shape13_20260830T034815Z.json` và
+`runs/profiles/profile_shape13_20260830T035041Z.json`. Official #2/#12
 fallback canaries nằm trong
-`benchmark-results/matrix_v15_DirectQKVLayout_float32_20260830T035331Z.json`.
+`runs/benchmarks/matrix_v15_DirectQKVLayout_float32_20260830T035331Z.json`.
 
 ### 8.16 V16 compiled executor trên official shape #14
 
@@ -1373,7 +1380,7 @@ accuracy `19.585 GiB`.
 V16 sample nằm giữa hai controls. Original baseline không executable nên
 speedup chính thức vẫn N/A. #2/#13 fallback canaries PASS strict; timing
 `1/1/1` của chúng không dùng làm performance claim.
-Artifact: `benchmark-results/shape14_v16_v141_sandwich_20260830.json`.
+Artifact: `runs/benchmarks/shape14_v16_v141_sandwich_20260830.json`.
 
 ### 8.17 V17 batch-chunk B=2 trên official shape #14
 
@@ -1392,7 +1399,7 @@ Trung bình hai median V16/V17 là `7173.3877/7136.4385 ms`, chênh
 `-0.515%`. Gain giữ dấu nhưng dưới 1% và chưa vượt confidence threshold so
 với drift trong từng process. D-033 không promote V17; original baseline và
 speedup vẫn N/A. Artifact:
-`benchmark-results/shape14_v17_v16_alternating_20260830.json`.
+`runs/benchmarks/shape14_v17_v16_alternating_20260830.json`.
 
 ### 8.18 Shape-#14 profiler và attention backend shootout
 
@@ -1413,7 +1420,7 @@ scores và không chạy trên GPU 32 GiB.
 FA4 bị reject theo performance. Sage được phép đi tiếp sang version V18 vì
 upside lớn, nhưng eager full-model B=1 vẫn fail `1/102.4M`; theo accuracy-first
 gate không có V18 model timing. Artifacts có prefix
-`profile-results/shape14_inner_*`, `shape14_fa4_probe_*` và
+`runs/profiles/shape14_inner_*`, `shape14_fa4_probe_*` và
 `shape14_sage_probe_*`; D-034 ghi quyết định giữ V16.
 
 ### 8.19 V15.1 direct-layout QKV cross-shape sweep
@@ -1524,7 +1531,7 @@ samples là `7135.0098/7171.5771/7213.5254/7239.6484/7260.9688 ms`; median
 `18.6 TiB`.
 
 Raw JSON/CSV, full #14 logs và environment manifest được check in tại
-`results/cross-host-driver580/`. Đây là historical cross-host evidence; section
+`results/archive/cross-host-driver580/`. Đây là historical cross-host evidence; section
 tiếp theo chứa promoted driver-595 timeline.
 
 ### 8.23 Full checkpoint timeline và promoted driver-595 final
@@ -1582,7 +1589,7 @@ streamed B32 PASS `0/3,276,800,000`, max abs `0.000944197`; native B32 output
 Driver-595 baseline geomean `3.5108 ms` chậm hơn driver-580 `2.0355 ms`
 `72.48%`, còn optimized `0.29745 ms` chậm hơn `0.25752 ms` `15.51%`. Vì code
 revision không đổi, `7.904x → 11.803x` là host-ratio effect, không phải code
-improvement. Curated evidence nằm trong `results/timeline-rtx5090-driver595/`
+improvement. Curated evidence nằm trong `results/timeline/`
 và `results/final/`.
 
 ## 9. Cách tái lập
@@ -1606,20 +1613,20 @@ vào cùng final aggregate.
 ### 9.2 Kiểm tra syntax
 
 ```bash
-python -m py_compile main.py matrix_runner.py profile_models.py \
-  torch_transformer_benchmark.py v16_1_clean.py shape14_accuracy.py \
-  shape14_optimized_benchmark.py shape14_profile.py \
-  shape14_fa4_probe.py shape14_sage_probe.py timeline_adapter.py \
-  timeline_runner.py shape14_checkpoint_worker.py shape14_timeline_runner.py
-python timeline_runner.py --list-checkpoints
-python timeline_runner.py --list-shapes
-python shape14_timeline_runner.py --list-checkpoints
+python -m py_compile main.py tools/matrix_runner.py tools/profile_models.py \
+  torch_transformer_benchmark.py v16_1_clean.py tools/shape14/accuracy.py \
+  tools/shape14/optimized_benchmark.py tools/shape14/profile.py \
+  tools/shape14/fa4_probe.py tools/shape14/sage_probe.py tools/timeline_adapter.py \
+  tools/timeline_runner.py tools/shape14/checkpoint_worker.py tools/shape14/timeline_runner.py
+python -m tools.timeline_runner --list-checkpoints
+python -m tools.timeline_runner --list-shapes
+python -m tools.shape14.timeline_runner --list-checkpoints
 ```
 
 ### 9.3 Chạy timeline đủ #1–#13
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python timeline_runner.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.timeline_runner \
   --checkpoints v16_1,baseline,v1,v2,v3_1_eager,v3_1_compiled,v4_1,v4_2,v4_3,v8,v11,v16_1 \
   --shape-ids 1-13 --device cuda:0 --dtype float32 \
   --accuracy-trials 5 --warmup 20 --repeats 100 \
@@ -1644,7 +1651,7 @@ Runner đã PASS local smoke trên official shape #2 và GPU smoke trên officia
 ### 9.3.1 Baseline/V16.1 riêng cho shape #14
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python shape14_timeline_runner.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.shape14.timeline_runner \
   --checkpoints baseline,v16_1 --device cuda:0 --seed 1234 \
   --batch-limit 32 --query-chunk 256 --compare-token-chunk 2048 \
   --warmup 1 --repeats 5 --compile-mode max-autotune
@@ -1665,16 +1672,16 @@ dùng source trong `archive/versions/` và thêm cả root lẫn thư mục arch
 ### 9.4 Profile v1/v2/v3 trên cùng official shape
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v1 v2 v3 --shape-id 1
 ```
 
-Command chạy mỗi implementation trong subprocess riêng, giữ correctness gate trước performance và đo end-to-end latency bằng CUDA Event. Eager path thu ATen operator cùng model-stage breakdown bằng PyTorch Profiler/Kineto; model-stage table tách norm1, QKV projection, view/reshape, attention core, output projection, residual, norm2, FFN in/GELU/out, masking/copy và final norm. Terminal in bảng so sánh; JSON nằm trong `profile-results/`. Muốn xuất Chrome trace để mở bằng Perfetto, thêm `--export-traces --record-shapes`.
+Command chạy mỗi implementation trong subprocess riêng, giữ correctness gate trước performance và đo end-to-end latency bằng CUDA Event. Eager path thu ATen operator cùng model-stage breakdown bằng PyTorch Profiler/Kineto; model-stage table tách norm1, QKV projection, view/reshape, attention core, output projection, residual, norm2, FFN in/GELU/out, masking/copy và final norm. Terminal in bảng so sánh; JSON nằm trong `runs/profiles/`. Muốn xuất Chrome trace để mở bằng Perfetto, thêm `--export-traces --record-shapes`.
 
 Để profile compiled path và xác nhận CUDA Graph/Triton evidence:
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v3.1 --shape-id 1 \
   --compile-user --compile-mode reduce-overhead \
   --export-traces --record-shapes
@@ -1720,19 +1727,19 @@ Padding, non-causal và shape tự tạo chỉ được chạy như correctness/
 ### 9.8 Benchmark official shapes #1 và #13 với v3.1
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl v3.1 --shape-ids 1,13 --device cuda:0 --dtype float32
 ```
 
 ### 9.9 Profile V4.1 eager và compiled
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v3_1_CausalMask.py v4_FP16.py v4_1_FP16_GELU.py \
   --shape-id 1 --accuracy-trials 5 \
   --warmup 50 --repeats 200 --benchmark-rounds 5
 
-CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v3_1_CausalMask.py v4_FP16.py v4_1_FP16_GELU.py \
   --shape-id 1 --accuracy-trials 5 \
   --warmup 50 --repeats 200 --benchmark-rounds 5 \
@@ -1742,13 +1749,13 @@ CUDA_VISIBLE_DEVICES=1 python profile_models.py \
 Runner alias của candidate là `v4.1.fp16`, ví dụ:
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python matrix_runner.py --impl v4.1.fp16
+CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner --impl v4.1.fp16
 ```
 
 ### 9.10 Chạy V4.2 dispatcher trên shapes #1–#13
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl v4.2.dispatch \
   --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --compile-user --compile-mode reduce-overhead
@@ -1760,7 +1767,7 @@ khỏi `SHAPES` hoặc correctness requirement.
 ### 9.11 Chạy V4.3 Flash-first trên shapes #1–#13
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl v4.3 \
   --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --compile-user --compile-mode max-autotune
@@ -1773,7 +1780,7 @@ trong runner và phải được xử lý trước final.
 ### 9.12 Tái lập V5.1 FP16 accumulation ablation
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl v5.1 --shape-ids 8,10 \
   --accuracy-trials 5 \
   --compile-user --compile-mode max-autotune
@@ -1785,7 +1792,7 @@ Command mặc định dừng từng row trước benchmark nếu accuracy fail. 
 ### 9.13 Tái lập V6 approximate GELU
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl v6 --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --accuracy-trials 5 \
   --compile-user --compile-mode max-autotune
@@ -1797,7 +1804,7 @@ accuracy nhưng performance bị invalid bởi concurrent training workload.
 ### 9.14 Tái lập V7 residual + LayerNorm pipeline
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v4_3_Flash.py v7_ResidualLayerNorm.py \
   --shape-id 12 --accuracy-trials 5 \
   --warmup 50 --repeats 200 --benchmark-rounds 5 \
@@ -1812,7 +1819,7 @@ Triton; mục tiêu của command là tái lập compiled-graph equivalence.
 Paired performance trên official #6:
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v4.3 v8 --shape-id 6 --accuracy-trials 5 \
   --warmup 10 --repeats 20 --benchmark-rounds 5 \
   --compile-user --compile-mode max-autotune
@@ -1821,7 +1828,7 @@ TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
 Accuracy/performance matrix #1–#13:
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl v8 --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --accuracy-trials 5 --warmup 20 --repeats 100 --benchmark-rounds 3 \
   --compile-user --compile-mode max-autotune
@@ -1833,7 +1840,7 @@ Chạy hai orders để kiểm tra order bias:
 
 ```bash
 for sid in 1 2 3 4 5 7 8 9 10 11 12 13; do
-  TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+  TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
     --impl v4.3 v8.1 --shape-id "$sid" --accuracy-trials 5 \
     --warmup 20 --repeats 100 --benchmark-rounds 3 \
     --compile-user --compile-mode max-autotune
@@ -1849,7 +1856,7 @@ baseline batch 10000.
 Accuracy matrix:
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl v9 --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --accuracy-trials 5 --warmup 1 --repeats 1 --benchmark-rounds 1 \
   --compile-user --compile-mode max-autotune
@@ -1858,7 +1865,7 @@ TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
 Paired representative shape; đảo thứ tự implementations để kiểm tra bias:
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v4.3 v9 --shape-id 7 --accuracy-trials 5 \
   --warmup 50 --repeats 200 --benchmark-rounds 5 \
   --compile-user --compile-mode max-autotune
@@ -1874,17 +1881,17 @@ Correctness gate trước trên
 thứ hai:
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python matrix_runner.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.matrix_runner \
   --impl main --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --accuracy-trials 5 --warmup 1 --repeats 1 --benchmark-rounds 1 \
   --compile-user --compile-mode max-autotune
 
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v8.1 v11 --shape-id 7 --accuracy-trials 10 \
   --warmup 50 --repeats 200 --benchmark-rounds 5 \
   --compile-user --compile-mode max-autotune
 
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python profile_models.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 python -m tools.profile_models \
   --impl v8.1 v11 --shape-id 6 --accuracy-trials 5 \
   --warmup 10 --repeats 20 --benchmark-rounds 3 \
   --compile-user --compile-mode max-autotune
@@ -1964,7 +1971,7 @@ Chỉ chạy khi GPU vật lý #1 idle để Triton autotune không cache tile b
 chọn dưới contention. Command accuracy + paired profile chính cho #13:
 
 ```bash
-TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 .venv/bin/python profile_models.py \
+TORCH_LOGS=perf_hints CUDA_VISIBLE_DEVICES=1 .venv/bin/python -m tools.profile_models \
   --impl v14.1 v15 --shape-id 13 --accuracy-trials 5 \
   --warmup 50 --repeats 200 --benchmark-rounds 5 \
   --profile-warmup 50 --profile-iterations 20 \
@@ -1989,7 +1996,7 @@ Chạy full gate bằng command §9.3.1 với `--impl v17`. Sau PASS, chạy alt
 processes V16/V17 với cùng command timing:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python shape14_optimized_benchmark.py \
+CUDA_VISIBLE_DEVICES=0 /venv/main/bin/python -m tools.shape14.optimized_benchmark \
   --device cuda:0 --impl v17 --warmup 1 --repeats 5 \
   --compile-mode max-autotune
 ```
@@ -2009,7 +2016,7 @@ một fallback PASS giả:
 CUDA_VISIBLE_DEVICES=1 .venv/bin/python v17_sage_opcheck.py \
   --device cuda:0 --seq-len 128 --head-dim 32 --exact-prefix 32
 
-TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=1 .venv/bin/python matrix_runner.py \
+TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=1 .venv/bin/python -m tools.matrix_runner \
   --impl v17.sage \
   --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --device cuda:0 --dtype float32 \
@@ -2021,7 +2028,7 @@ Historical #14 gate dùng memory-bounded accuracy tool riêng và tắt CUDA Gra
 
 ```bash
 TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=1 .venv/bin/python \
-  shape14_accuracy.py --device cuda:0 --impl v17.sage \
+  tools/shape14/accuracy.py --device cuda:0 --impl v17.sage \
   --batch-limit 1 --query-chunk 256 --compare-token-chunk 2048 \
   --seed 1234 --compile-mode max-autotune-no-cudagraphs
 ```
@@ -2031,7 +2038,7 @@ chạy optimized-only timing:
 
 ```bash
 TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=1 .venv/bin/python \
-  shape14_optimized_benchmark.py --device cuda:0 --impl v17.sage \
+  tools/shape14/optimized_benchmark.py --device cuda:0 --impl v17.sage \
   --warmup 1 --repeats 5 --compile-mode max-autotune-no-cudagraphs
 ```
 
@@ -2050,7 +2057,7 @@ TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=0 python3 v18_sage_opcheck.py \
 Hai sample nhẹ trước full run:
 
 ```bash
-TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=0 python3 matrix_runner.py \
+TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=0 python3 -m tools.matrix_runner \
   --impl v18.sage --shape-ids 2,12 --device cuda:0 --dtype float32 \
   --accuracy-trials 1 --warmup 2 --repeats 10 --benchmark-rounds 1 \
   --compile-user --compile-mode max-autotune --benchmark-on-failure \
@@ -2060,7 +2067,7 @@ TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=0 python3 matrix_runner.py \
 Full #1–#13 performance diagnostic do owner chạy:
 
 ```bash
-TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=0 python3 matrix_runner.py \
+TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=0 python3 -m tools.matrix_runner \
   --impl v18.sage \
   --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --device cuda:0 --dtype float32 --accuracy-trials 1 \
@@ -2075,7 +2082,7 @@ Shape #14 dùng optimized-only tool vì original baseline không executable:
 
 ```bash
 TECHJAM_SAGE_REQUIRE=1 CUDA_VISIBLE_DEVICES=0 python3 \
-  shape14_optimized_benchmark.py --device cuda:0 --impl v18.sage \
+  tools/shape14/optimized_benchmark.py --device cuda:0 --impl v18.sage \
   --warmup 1 --repeats 5 \
   --compile-mode max-autotune-no-cudagraphs
 ```
@@ -2089,7 +2096,7 @@ V16.1:
 ```bash
 for checkpoint in 16 32 64 128 fp32; do
   TECHJAM_V19_CHECKPOINT_K="$checkpoint" CUDA_VISIBLE_DEVICES=1 \
-    python3 matrix_runner.py --impl v19 --shape-ids 7,10,2 \
+    python3 -m tools.matrix_runner --impl v19 --shape-ids 7,10,2 \
     --device cuda:0 --dtype float32 --accuracy-trials 5 \
     --warmup 1 --repeats 1 --benchmark-rounds 1 \
     --compile-user --compile-mode max-autotune --timeout 1800
@@ -2100,21 +2107,21 @@ Chỉ mode PASS mới được chạy full #1–#13 rồi paired V16.1/V19. Ví 
 K=32:
 
 ```bash
-TECHJAM_V19_CHECKPOINT_K=32 CUDA_VISIBLE_DEVICES=1 python3 matrix_runner.py \
+TECHJAM_V19_CHECKPOINT_K=32 CUDA_VISIBLE_DEVICES=1 python3 -m tools.matrix_runner \
   --impl v19 --shape-ids 1,2,3,4,5,6,7,8,9,10,11,12,13 \
   --device cuda:0 --dtype float32 --accuracy-trials 5 \
   --warmup 20 --repeats 100 --benchmark-rounds 3 \
   --compile-user --compile-mode max-autotune --timeout 1800
 
-TECHJAM_V19_CHECKPOINT_K=32 CUDA_VISIBLE_DEVICES=1 python3 profile_models.py \
+TECHJAM_V19_CHECKPOINT_K=32 CUDA_VISIBLE_DEVICES=1 python3 -m tools.profile_models \
   --impl main v19 --shape-id 6 --accuracy-trials 5 \
   --warmup 10 --repeats 20 --benchmark-rounds 3 \
   --compile-user --compile-mode max-autotune
 ```
 
 Đảo `--impl v19 main` cho order thứ hai. Sau #1–#13 PASS, dùng
-`shape14_accuracy.py --impl v19` theo B=1, B=2 rồi B=32 trước
-`shape14_optimized_benchmark.py`; baseline/speedup #14 vẫn N/A.
+`tools/shape14/accuracy.py --impl v19` theo B=1, B=2 rồi B=32 trước
+`tools/shape14/optimized_benchmark.py`; baseline/speedup #14 vẫn N/A.
 
 ### 9.28 Gate V19.1 parallel batch scheduler
 
@@ -2122,12 +2129,12 @@ TECHJAM_V19_CHECKPOINT_K=32 CUDA_VISIBLE_DEVICES=1 python3 profile_models.py \
 
 ```bash
 TECHJAM_V19_PARALLEL_PARTS=2 CUDA_VISIBLE_DEVICES=1 python3 \
-  shape14_accuracy.py --device cuda:0 --impl v19.1.0 --batch-limit 2 \
+  tools/shape14/accuracy.py --device cuda:0 --impl v19.1.0 --batch-limit 2 \
   --query-chunk 256 --compare-token-chunk 2048 --seed 1234 \
   --compile-mode max-autotune
 
 TECHJAM_V19_CHECKPOINT_K=32 TECHJAM_V19_PARALLEL_PARTS=2 \
-  CUDA_VISIBLE_DEVICES=1 python3 shape14_accuracy.py --device cuda:0 \
+  CUDA_VISIBLE_DEVICES=1 python3 -m tools.shape14.accuracy --device cuda:0 \
   --impl v19.1.1 --batch-limit 2 --query-chunk 256 \
   --compare-token-chunk 2048 --seed 1234 --compile-mode max-autotune
 ```
@@ -2141,11 +2148,11 @@ Sau full B=32 strict PASS, đo optimized-only trên GPU idle:
 
 ```bash
 TECHJAM_V19_PARALLEL_PARTS=2 CUDA_VISIBLE_DEVICES=1 python3 \
-  shape14_optimized_benchmark.py --device cuda:0 --impl v19.1.0 \
+  tools/shape14/optimized_benchmark.py --device cuda:0 --impl v19.1.0 \
   --warmup 1 --repeats 5 --compile-mode max-autotune
 
 TECHJAM_V19_CHECKPOINT_K=32 TECHJAM_V19_PARALLEL_PARTS=2 \
-  CUDA_VISIBLE_DEVICES=1 python3 shape14_optimized_benchmark.py \
+  CUDA_VISIBLE_DEVICES=1 python3 -m tools.shape14.optimized_benchmark \
   --device cuda:0 --impl v19.1.1 --warmup 1 --repeats 5 \
   --compile-mode max-autotune
 ```
@@ -2173,7 +2180,7 @@ Whole-model `torch.compile(mode="reduce-overhead")` là execution configuration 
 ## 11. Công cụ và quy trình phát triển
 
 - PyTorch được dùng cho reference, optimized implementation, correctness và CUDA Event timing.
-- `profile_models.py` dùng PyTorch Profiler/Kineto: eager tổng hợp ATen category/model stage; compiled path tổng hợp raw GPU device/kernel events, Triton/compiled-region/CUDA-Graph launch evidence, top device events và steady/peak CUDA allocation.
+- `tools/profile_models.py` dùng PyTorch Profiler/Kineto: eager tổng hợp ATen category/model stage; compiled path tổng hợp raw GPU device/kernel events, Triton/compiled-region/CUDA-Graph launch evidence, top device events và steady/peak CUDA allocation.
 - OpenAI Codex được dùng để đối chiếu đề với benchmark, phân tích code, đề xuất và triển khai candidate, chạy test local/GPU và thực hiện ablation giữa các biến thể.
 - Input benchmark là tensor sinh ngẫu nhiên với seed cố định; project không dùng dataset bên ngoài.
 - Mỗi thay đổi được kiểm tra syntax và accuracy trước khi benchmark hiệu năng.

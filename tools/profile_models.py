@@ -27,10 +27,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from matrix_runner import SHAPES, print_shapes, resolve_implementation
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from tools.matrix_runner import SHAPES, print_shapes, resolve_implementation
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 CATEGORIES = (
     "gemm",
     "attention",
@@ -117,7 +122,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument(
-        "--output-dir", type=Path, default=ROOT / "profile-results"
+        "--output-dir", type=Path, default=ROOT / "runs" / "profiles"
     )
 
     child = parser.add_argument_group(argparse.SUPPRESS)
@@ -903,7 +908,8 @@ def child_command(
 ) -> list[str]:
     command = [
         args.python,
-        str(Path(__file__).resolve()),
+        "-m",
+        "tools.profile_models",
         "--_child",
         "--_impl-path",
         str(impl_path),
@@ -1290,7 +1296,8 @@ def parent_main(args: argparse.Namespace) -> int:
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "invocation": [
                         sys.executable,
-                        str(Path(__file__).resolve()),
+                        "-m",
+                        "tools.profile_models",
                         *sys.argv[1:],
                     ],
                     "git_revision": git_revision(),
