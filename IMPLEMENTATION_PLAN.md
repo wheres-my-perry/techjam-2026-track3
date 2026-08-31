@@ -199,16 +199,16 @@ không executable trên 32 GiB.
 - [~] V18-Sage direct automatic trên source-clean V16.1: SM120 dùng Sage
   INT8-QK/FP8-PV, bỏ prefix/FP32-out correction; #8 fallback do Dh=256. Đây là
   benchmark-on-failure diagnostic, không phải accuracy-valid candidate.
-- [~] V19 thay riêng FFN-in/GELU của V16.1 bằng CUDA WMMA accumulator FP16 và
+- [x] V19 thay riêng FFN-in/GELU của V16.1 bằng CUDA WMMA accumulator FP16 và
   checkpoint partial sum vào FP32 theo K. Default K=32; controls K=16/64/128 và
-  WMMA-FP32 dùng cùng layout/epilogue. Local state/branch/opcheck và one-trial
-  #2 PASS; CUDA compile, strict matrix và paired performance pending vì GPU đang
-  có job. `main.py` vẫn V16.1.
-- [~] V19.1.0/V19.1.1 chia large batch thành 1/2/4/8/16/32 partition cân bằng
+  WMMA-FP32 dùng cùng layout/epilogue. GPU K64 full #1–#14 PASS nhưng #1–#13
+  geomean `10.3079x` so V16.1 `11.8030x`; reject performance, `main.py` vẫn
+  V16.1.
+- [x] V19.1.0/V19.1.1 chia large batch thành 1/2/4/8/16/32 partition cân bằng
   và enqueue trên nhiều CUDA stream; bản đầu kế thừa V16.1, bản sau kế thừa
-  V19. Local planner/state/fallback/official-#2 smoke PASS; outer scheduler
-  CUDA, strict full #14, peak memory và latency pending. Parts>1 dùng
-  `max-autotune-no-cudagraphs`; `main.py` vẫn V16.1.
+  V19. GPU sweep chọn V19.1.0 P4: full #14 PASS `0/3.2768B`, median
+  `6780.3867 ms`, peak `25.676 GiB`; P8 regress và P16 không chạy. V19.1.1
+  K64/P2 PASS nhưng chậm hơn. `main.py` chưa đổi.
 - [ ] So sánh code complexity, compile time, portability và speedup.
 
 **Exit criteria:** có ít nhất một candidate tốt nhất cho mỗi nhóm shape quan trọng.
@@ -294,8 +294,7 @@ không executable trên 32 GiB.
 11. **Deferred research:** protected low precision và custom SM120 attention chỉ
     mở khi exact library/fusion path đã được đo. Accuracy-only #1/#8/#13 đứng
     trước mọi timing low-precision.
-12. Giữ V16.1 làm main. V19 checkpointed-FP16 và V19.1 multi-stream tiếp tục là
-    deferred prototypes: attention chiếm `92.258%` ở #14, còn B=2 chỉ thắng
-    `0.30–0.59%`, nên hai nhánh này không đứng trước FlashInfer/layout work.
-    Mọi optimization mới vẫn phải version hóa, PASS strict full matrix rồi mới
-    được thay final evidence.
+12. Giữ V16.1 làm main cho tới quyết định promotion riêng. V19 checkpointed-FP16
+    đã bị GPU performance gate reject. V19.1.0 P4 full strict PASS và thắng
+    V16.1 P1 controls `1.51–1.66%` trên #14; giữ làm measured candidate nhưng
+    không tự thay final evidence. FlashInfer/layout work vẫn có upside lớn hơn.

@@ -31,18 +31,27 @@ element was rejected before performance measurement.
 ## Our core insight
 
 There is no single universally optimal Transformer kernel across these shapes.
-The winning strategy was to optimize at three levels while preserving one
-public interface, `forward(x, valid_token_mask)`:
+The reference pays three different kinds of cost: arithmetic from explicit
+attention, bandwidth and launch cost from moving intermediate tensors, and
+peak-memory cost from keeping too many tensors live at once. Which cost
+dominates changes with `B`, `S`, `D`, and the number of heads. Optimizing only
+one kernel therefore cannot solve the complete benchmark.
+
+Our strategy was to optimize at three levels while preserving one public
+interface, `forward(x, valid_token_mask)`:
 
 1. Reduce graph, data-movement, and launch overhead using packed projections,
    Flash-first SDPA, custom fusion, and whole-model compilation.
 2. Use lower precision only where Tensor Core throughput helps, while keeping
    numerically sensitive boundaries in FP32.
-3. Change the execution schedule when tensor lifetime—not the Transformer
+3. Change execution scheduling when tensor lifetime—not the Transformer
    formula—is the reason a valid workload cannot fit in memory.
 
-The result was an accuracy-gated loop: profile, test one hypothesis, reject
-failures, and promote only measured end-to-end wins.
+The development loop was always the same: establish the unchanged reference as
+the oracle, profile a real official shape, make one targeted change, run the
+strict accuracy gate, and then compare end-to-end latency on the same GPU. A
+faster microkernel was useful only if it improved the complete model without
+spending the numerical margin needed by another layer.
 
 ## From the reference to the final architecture
 
@@ -110,57 +119,162 @@ optional Triton, but no benchmark harness or historical implementation.
 > &nbsp;&nbsp;&nbsp;↓<br>
 > FP32 final LayerNorm and output `[B,S,D]`
 
+For shapes #1–#13, the benchmark compiles the complete model after weight loading,
+device transfer, and `eval()`, exposing all four Transformer blocks to
+TorchInductor. Shape #14 deliberately breaks that outer graph: compiling the
+32-sample loop could unroll it or extend tensor lifetimes, so only its reusable
+single-sample body is compiled.
+
 The fast path targets FP32 inference with internal FP16 compute. Non-causal
 cases retain their key mask and use automatic SDPA; training and unsupported
-public dtypes use reference arithmetic. The backend priority also falls through
-to supported implementations when Flash is unavailable. Parameter names remain
-compatible with the reference `state_dict`; derived FP16 packed weights are
-non-persistent caches that refresh after `load_state_dict()` and device/dtype
-moves.
+public dtypes execute the reference arithmetic. Flash is a priority rather than
+an assumption: PyTorch can fall through to cuDNN, memory-efficient, or math
+SDPA when required. Parameter names remain compatible with the reference
+`state_dict`. Derived FP16 weights and the compiled long-sequence executor are
+runtime caches, not model parameters; both are refreshed or invalidated after
+weight loading, device/dtype moves, and relevant mode changes.
 
 ## Algorithm and implementation details
 
-### 1. Flash-first attention with a mask proof
+### 1. Packed QKV, no-copy head views, and whole-graph execution
 
-The reference materializes `QKᵀ`, mask operations, softmax probabilities, and
-the probability–V product. Perry instead calls PyTorch SDPA with the backend
-priority Flash → cuDNN → memory-efficient → math.
+**Bottleneck and insight.** The reference applies three independent linear
+projections to the same normalized tensor. That means three GEMM dispatches,
+three reads of the same activation, and three separately produced outputs per
+layer. Packing the projection is safe because Q, K, and V have the same input
+and output dimensions; concatenating their weights along the output dimension
+does not change any dot product.
+
+**Implementation.** Perry stores a derived packed weight
+`[W_Q; W_K; W_V]` and bias in FP16 and performs one `F.linear`, producing
+`[B,S,3D]`. Instead of splitting Q/K/V and calling `.contiguous()` three times,
+it reshapes to `[B,S,3,H,Dh]`, permutes, and unbinds three views in the layout
+accepted by SDPA. A flattened model loop then exposes packed projection,
+attention, residuals, and FFN operations from every layer to one
+`torch.compile(mode="max-autotune")` graph. Compilation and autotuning finish
+during warmup and are excluded from steady-state timing.
+
+**Correctness and lifecycle.** The original `q_proj`, `k_proj`, and `v_proj`
+parameters remain present, so strict reference weight loading still works.
+Packed FP16 tensors are non-persistent caches: they do not enter the public
+`state_dict`, refresh after `load_state_dict()` and `.to()`, and are not used in
+training, where optimizer updates could make them stale.
+
+**Measured result and tradeoff.** Packed QKV alone moved the same-host
+geometric mean only from `1.001x` to `1.076x`; it removed real work but did not
+touch explicit attention or the rest of the launch chain. The cumulative
+no-copy/mask-elision stage reached `2.101x`, including a `46.35%` improvement
+over the preceding SDPA stage. The subsequent jump to `10.200x` combined
+mixed-precision Tensor Core execution with compilation, so we intentionally do
+not claim that either change alone produced the full increase.
+
+### 2. Flash-first causal attention with a mask proof
+
+**Bottleneck and insight.** The reference writes `QKᵀ`, applies masks,
+materializes softmax probabilities, and multiplies them by V. Those
+sequence-squared intermediates dominate long attention and make shape #14's
+original score tensor impossible to allocate. PyTorch SDPA can execute the same
+dense attention through a fused backend, but a non-null padding mask can prevent
+the Flash path even when the mask carries no additional information.
 
 For causal self-attention with right padding, valid tokens form a prefix. A
-valid query can only attend to keys at its own or earlier position, so it cannot
-observe padded keys in the suffix. The causal fast path can therefore omit the
-redundant key mask and zero invalid query outputs at the block boundary.
-Non-causal execution keeps the key mask. This proof does not apply to arbitrary
-sparse masks, which remain outside the optimized mask-elision contract.
+valid query at position `i` can only attend to keys at positions `j ≤ i`, all
+of which are also inside that valid prefix. It can never observe a padded key in
+the suffix. Perry therefore passes `attn_mask=None`, sets `is_causal=True`, and
+zeros invalid query positions at the block boundary. Non-causal execution keeps
+the key mask. This proof does not extend to arbitrary sparse or left-padding
+masks, so those inputs are not silently treated as equivalent.
 
-### 2. Mixed precision with FP32 safety boundaries
+**Implementation and fallback.** The backend priority is Flash → cuDNN →
+memory-efficient → math; unsupported choices fall through inside PyTorch
+without a host-side tensor check or synchronization. The scale remains exactly
+`1/sqrt(head_dim)`, dropout is zero, and the result follows the same output
+projection and residual path as the reference.
 
-Public inputs and outputs, LayerNorm, residual accumulation, and the custom
-FFN-in dot-product accumulator remain FP32. QKV, SDPA, projections, and FFN
-GEMMs use FP16 operands for Tensor Core throughput. The exact GELU reads
-`accumulator + bias` in FP32 before its output is stored in FP16 for FFN-out.
-This removes an unnecessary pre-GELU rounding boundary without adding another
-intermediate tensor or launch.
+**Measured result and tradeoff.** Replacing explicit attention with SDPA raised
+the early cumulative result from `1.076x` to `1.435x`. Later, changing the
+compiled path from shape-specific backend dispatch to Flash-first attention
+raised the same-host geometric mean from `10.449x` to `11.676x`, a stable
+`11.74%` increase that remained positive in reverse-order controls. The
+tradeoff is a narrower mask contract on the optimized causal path; safe
+fallbacks remain available outside it.
 
-### 3. Custom Triton FFN/GELU fusion
+### 3. Mixed precision as protected precision islands
 
-The first FFN matrix multiplication, bias, and exact erf-GELU are fused in a
-Triton operator. `torch.library.custom_op` and a fake implementation allow
-TorchInductor to capture the kernel inside the compiled graph. In the same-host
-timeline, adding this fusion moved the forward-order geometric mean from
-`11.676x` to `11.785x`, while the reverse order changed the comparison's sign.
-We therefore treat it as an architectural fusion with shape-dependent value,
-not as a robust aggregate speedup claim.
+**Bottleneck and insight.** The RTX 5090 provides much higher throughput for
+FP16 Tensor Core operands, but converting the entire Transformer to low
+precision accumulated too much error across four residual blocks. The useful
+unit of optimization was therefore not “the model dtype,” but a set of
+carefully bounded precision islands.
 
-### 4. Exact memory-bounded scheduling for shape #14
+The final arithmetic boundary is explicit:
 
-The shape-#14 input and output each occupy 12.207 GiB in FP32, while full-batch
-packed QKV would add 18.311 GiB. Batch samples do not interact, so Perry
-preallocates the final output, processes one sample through all layers, and
-writes it into the corresponding output slice. The outer loop remains eager to
-prevent Dynamo from unrolling 32 samples into one graph; the `B=1` body is
-compiled once and reused. This changes live tensor lifetime and launch
-scheduling, not the Transformer computation.
+- Public inputs and outputs, LayerNorm, residual streams, and final LayerNorm
+  remain FP32.
+- Packed QKV, SDPA, attention output projection, and both FFN GEMMs use FP16
+  activations and cached FP16 weights.
+- Projection results return to FP32 before residual addition.
+- The custom FFN-in dot product accumulates in FP32; exact GELU reads the FP32
+  accumulator plus bias, and only its output is stored in FP16 for FFN-out.
+
+This boundary keeps high-throughput GEMMs and attention on Tensor Cores while
+preventing low-precision residual drift from compounding across layers. The
+mixed-precision/backend stages had a worst maximum absolute error of
+`0.00188218`. Removing the pre-GELU rounding boundary reduced the final worst
+maximum absolute error to `0.00179085` without adding a tensor or launch. More
+aggressive BF16, FP8, INT8, or full-FP16-accumulation candidates were rejected
+by the unchanged elementwise gate and are summarized later.
+
+### 4. Triton FFN-in and exact-GELU fusion
+
+**Bottleneck and insight.** After attention improved, profiling exposed the
+first FFN projection and its activation boundary as another opportunity. A
+separate FFN-in linear and exact GELU produce an intermediate and leave less
+control over where FP16 rounding occurs. Fusing the complete two-layer MLP looked
+attractive, but isolated kernel speed did not translate consistently to
+whole-model latency.
+
+**Implementation.** A Triton custom operator fuses FFN-in matrix
+multiplication, bias, and exact erf-GELU. Its tiled dot product reads FP16
+operands into an FP32 accumulator, applies the bias and GELU before the first
+rounding boundary, and writes one FP16 hidden tensor for the existing FFN-out
+GEMM. `torch.library.custom_op` plus a fake implementation lets TorchInductor
+capture the operator; a mathematically equivalent PyTorch implementation is
+used when Triton/CUDA is unavailable.
+
+**Measured result and tradeoff.** In a targeted large-batch ablation, partial
+fusion reduced the compiled model from 32 to 29 GPU kernels and lowered latency
+from `26.6799 ms` to `25.4092 ms` (`4.76%`). Across the same-host timeline, the
+forward-order geometric mean moved from `11.676x` to `11.785x`, but the sub-1%
+aggregate difference changed sign with measurement order. We retained the
+partial fusion because it preserves exact semantics and the FP32 pre-GELU
+boundary; we do not present it as a universal standalone speedup.
+
+### 5. Exact memory-bounded scheduling for shape #14
+
+**Bottleneck and insight.** Shape #14 has FP32 input and output tensors of
+`[32,100000,1024]`, each occupying `12.207 GiB`. Flash attention removes the
+approximately `18.6 TiB` score tensor, but a full-batch FP16 packed-QKV tensor
+would still add `18.311 GiB`. Input, output, QKV, and workspace therefore cannot
+coexist within 32 GiB. The key invariant is that batch samples never attend to
+or otherwise interact with one another.
+
+**Implementation.** Perry allocates the required full output once, processes
+one sample through both Transformer layers, and immediately copies that result
+into its output slice before moving to the next sample. This bounds temporary
+QKV and attention storage to `B=1` while preserving the exact full-batch output
+contract. The outer loop is marked `torch.compiler.disable` so Dynamo cannot
+unroll 32 iterations into a memory-heavy graph. Its single-sample body is
+compiled lazily once and reused; the cached executor is invalidated after
+weight/device/mode changes.
+
+**Correctness and measured result.** This is only a scheduling transformation:
+no layer, weight, mask, arithmetic boundary, or output element is approximated.
+Compared with the earlier eager sample schedule, compiling and reusing the
+`B=1` body reduced optimized shape-#14 latency by `3.11–3.61%` and peak
+allocation from `26.977` to `24.487 GiB`. The final full-output gate passed all
+`3,276,800,000` elements. Its official latency is reported separately because
+the original baseline remains physically inexecutable on the target GPU.
 
 These excerpts are condensed from the active standalone implementation:
 
@@ -224,21 +338,25 @@ All rows below passed with zero failed elements. The worst maximum absolute
 error across shapes #1–#13 was `0.00179085`; pass/fail still came from the full
 absolute-OR-relative comparator, not this summary statistic.
 
-| Shape | Baseline median | Optimized median | Speedup | Max absolute error |
+All 13 shapes use four layers and `FFN=D`. The first column shows
+`B×S×D / heads`, making each workload regime visible without requiring the
+reader to cross-reference the problem statement.
+
+| Shape and workload (`B×S×D / H`) | Baseline median | Optimized median | Speedup | Max absolute error |
 |---:|---:|---:|---:|---:|
-| 1 | 1.7640 ms | 0.1343 ms | 13.134x | 0.00127273 |
-| 2 | 1.7764 ms | 0.1108 ms | 16.035x | 0.00114284 |
-| 3 | 1.7882 ms | 0.1108 ms | 16.142x | 0.00124183 |
-| 4 | 1.7384 ms | 0.1118 ms | 15.549x | 0.00134721 |
-| 5 | 1.7535 ms | 0.2102 ms | 8.340x | 0.00147235 |
-| 6 | 177.3218 ms | 25.1813 ms | 7.042x | 0.00160612 |
-| 7 | 1.7424 ms | 0.1118 ms | 15.584x | 0.00179085 |
-| 8 | 6.6464 ms | 2.7936 ms | 2.379x | 0.00134873 |
-| 9 | 1.5747 ms | 0.1513 ms | 10.409x | 0.00126606 |
-| 10 | 1.7550 ms | 0.1404 ms | 12.498x | 0.00134724 |
-| 11 | 1.7345 ms | 0.1860 ms | 9.326x | 0.00140083 |
-| 12 | 1.7501 ms | 0.1098 ms | 15.940x | 0.00134721 |
-| 13 | 41.8362 ms | 1.0793 ms | 38.762x | 0.00147235 |
+| #1 — `64×128×128 / 4` | 1.7640 ms | 0.1343 ms | 13.134x | 0.00127273 |
+| #2 — `1×128×128 / 4` | 1.7764 ms | 0.1108 ms | 16.035x | 0.00114284 |
+| #3 — `4×128×128 / 4` | 1.7882 ms | 0.1108 ms | 16.142x | 0.00124183 |
+| #4 — `16×128×128 / 4` | 1.7384 ms | 0.1118 ms | 15.549x | 0.00134721 |
+| #5 — `128×128×128 / 4` | 1.7535 ms | 0.2102 ms | 8.340x | 0.00147235 |
+| #6 — `10000×128×128 / 4` | 177.3218 ms | 25.1813 ms | 7.042x | 0.00160612 |
+| #7 — `64×128×32 / 4` | 1.7424 ms | 0.1118 ms | 15.584x | 0.00179085 |
+| #8 — `64×128×1024 / 4` | 6.6464 ms | 2.7936 ms | 2.379x | 0.00134873 |
+| #9 — `64×128×128 / 1` | 1.5747 ms | 0.1513 ms | 10.409x | 0.00126606 |
+| #10 — `64×128×128 / 2` | 1.7550 ms | 0.1404 ms | 12.498x | 0.00134724 |
+| #11 — `64×128×128 / 16` | 1.7345 ms | 0.1860 ms | 9.326x | 0.00140083 |
+| #12 — `64×32×128 / 4` | 1.7501 ms | 0.1098 ms | 15.940x | 0.00134721 |
+| #13 — `64×1024×128 / 4` | 41.8362 ms | 1.0793 ms | 38.762x | 0.00147235 |
 
 **Geometric-mean speedup: 11.803x.** This is the predeclared final-submission
 start control, not the best run selected after the fact. The repeated end
@@ -250,12 +368,26 @@ new host's baseline geomean was 72.48% slower while its optimized geomean was
 15.51% slower, so the ratio change is a cross-host effect—not a code-improvement
 claim.
 
+The spread is itself an architectural result. Shape #13 has enough
+sequence-length work to amortize compilation and benefits strongly from fused
+attention, reaching `38.762x`. Shape #8 is dominated by wide `D=1024` GEMMs
+that already use efficient library kernels, leaving less removable overhead and
+therefore reaching `2.379x`. Shapes #2–#4 are launch-sensitive small batches,
+while shape #6 is a 1.28-million-token projection/FFN workload. These regimes
+explain why Perry uses workload-aware execution rather than one claimed
+universally optimal kernel.
+
 ### Official shape #14
 
 The original explicit-score reference is statically infeasible because its
 attention tensor would require approximately 18.6 TiB. We therefore validated
-correctness with a memory-bounded oracle over the complete `B=32` output, then
-timed the native optimized forward with one warmup and five CUDA Event repeats.
+correctness with a memory-bounded oracle over the complete `B=32` output. The
+oracle preserves the reference formula, weights, FP32 softmax, masks, and
+strict comparator, but streams query blocks and comparison-token blocks so the
+score tensor never exists in full. A reduced-shape test first checked this
+oracle against the original implementation before it was used for shape #14.
+After accuracy passed, we timed the native full-output optimized forward with
+one warmup and five CUDA Event repeats.
 
 The result was **PASS, `0/3,276,800,000` failed elements**, with maximum absolute
 error `0.000944197` and mean absolute error `0.0000656367`. The optimized forward
@@ -287,65 +419,58 @@ and
 
 - **More aggressive low precision.** BF16 internal compute, per-tensor FP8,
   Blackwell MXFP8, full FP16 accumulation, and symmetric INT8 FFN-in were all
-  tested. Each exceeded the unchanged strict error budget in at least one
-  official gate. Full FP16 accumulation also provided no paired speed advantage
-  on the valid control, while even weight-only INT8 failed the smallest scoped
-  probe. We therefore retained FP16 operands only inside the measured precision
-  islands, with FP32 at sensitive boundaries.
+  tested. Each exceeded the strict error budget in at least one gate; full FP16
+  accumulation also showed no paired speed advantage. We therefore retained
+  FP16 only inside the measured precision islands.
 - **Quantized SageAttention.** A QK-INT8/PV-FP16 recipe was `1.393x` faster than
   PyTorch Flash in isolated long-sequence attention, but its full-Transformer
   `B=1` canary failed `1/102,400,000` output elements. An exact-prefix correction
-  reduced the local error yet still failed official shapes #6 and #9. Its
-  automatic INT8/FP8 route remains a performance-only diagnostic, not a valid
-  submission candidate.
+  reduced local error yet still failed official shapes #6 and #9. A single
+  failed element is enough to disqualify the route.
 
 ### Correct, but not a robust end-to-end improvement
 
 - **Approximate GELU and residual/LayerNorm rewrites.** Tanh GELU passed all
   shapes #1–#13, but was `0.32%` slower in the clean paired shape-#8 run and
-  disturbed an existing compiler fusion. The residual/LayerNorm pipeline was
-  equivalent, but TorchInductor already generated the intended fused graph; it
-  was also `0.32%` slower on shape #8. A custom replacement would have added
-  complexity without removing a measured bottleneck.
+  disturbed an existing compiler fusion. The residual/LayerNorm rewrite was
+  equivalent but produced no new code generation because TorchInductor already
+  fused the relevant path.
 - **Fully fused persistent MLP.** Keeping both FFN matrix multiplications and
   GELU in one persistent kernel produced `1.18–1.59x` isolated-kernel gains, but
   regressed whole-model latency on shapes #1, #5, and #13 and was slightly
-  slower than the final partial fusion on shape #6. This is why kernel-count
-  reduction alone was not a promotion criterion.
+  slower than the final partial fusion on shape #6. Fewer kernels did not mean
+  a faster compiled Transformer.
 - **Alternative attention backends.** On the exact shape-#14 inner workload,
   FlashAttention-4 passed correctness but was `7.72%` slower than PyTorch Flash;
   cuDNN was `2.38–2.92%` slower and the memory-efficient backend was nearly
-  twice as slow. A hard-coded per-shape SDPA table was also superseded by the
-  simpler Flash-first priority because the static mapping did not improve the
-  aggregate result enough to justify test-shaped source logic.
-- **Direct-layout QKV and larger long-sequence chunks.** Writing Q/K/V directly
-  in attention-native layout improved shape #13 by `0.98–2.20%` and shape #6 by
-  about `3.43%`, but 11 of the other 12 cross-shape probes did not show a robust
-  win. The final source therefore avoids an exact-test-tuple branch until a
-  general workload-based router is validated. Increasing the long-sequence
-  executor from `B=1` to `B=2` also passed full shape-#14 correctness, but gained
-  only `0.30–0.59%` with unchanged peak allocation—too close to measurement
-  drift to outweigh the simpler `B=1` schedule.
+  twice as slow. A hard-coded per-shape backend table was also replaced by the
+  simpler Flash-first priority.
+- **Direct-layout QKV.** Writing contiguous Q/K/V directly improved shape #13
+  by `0.98–2.20%` and shape #6 by about `3.43%`, but 11 of the other 12 probes
+  showed no robust win. The submission avoids an exact-test-tuple branch until
+  a general workload-based router is validated.
+- **Checkpointed FP16 WMMA.** This later FFN-in prototype passed the complete
+  correctness gate, but its #1–#13 geometric-mean speedup was `10.3079x` versus
+  the submitted path's `11.8030x`; direct optimized latency regressed `13.73%`.
+  Correctness alone was not enough to promote it.
+- **Parallel long-sequence scheduling.** A four-partition follow-up using the
+  submitted arithmetic passed all `3.2768B` shape-#14 elements and reached
+  `6780.3867 ms`, about `1.51–1.66%` faster than its single-partition controls.
+  It remains outside `main.py`: the gain is small and shape-specific, requires
+  disabling shared CUDA Graph replay, uses `25.676 GiB` peak allocation in that
+  mode, and still needs broader repeatability and portability evidence.
 
 ### Promising, but not sufficiently validated
 
-- **Precision-boundary and scheduling prototypes.** Direct FP32 FFN-out storage
-  improved local numerical margin and passed a CUDA shape-#7 accuracy canary,
-  but its full performance matrix was not completed and the wider output
-  increases memory traffic. A persistent FFN-in scheduler had no measured
-  result. Checkpointed-FP16 WMMA accumulation and multi-stream batch partitions
-  passed local structural tests only; CUDA compilation, full correctness,
-  memory, and paired timing gates remain open.
-- **Research-only directions.** FlashInfer SM120, Transformer Engine
-  LayerNorm-linear/MLP fusion, cuBLASLt/CUTLASS epilogues, a dedicated
-  `head_dim=8` kernel, no-concat QKV for shape #14, two-dimensional
-  batch/sequence streaming, causal load balancing, accuracy-aware autotuning,
-  and outlier-correction paths were not shipped because they lack complete
-  exact-workload validation. FlashAttention-3 targets Hopper rather than the
-  RTX 5090's `sm120`, while Transformer Engine's FP8 attention path was not
-  eligible on `sm120`. Sparse, linear, and low-rank attention would change the
-  required dense semantics; MLA, KV-cache/decode, distributed, and CPU kernels
-  target different workloads.
+- **Precision and kernel prototypes.** Direct FP32 FFN-out storage improved a
+  local accuracy canary but lacks a full timing matrix and increases memory
+  traffic. A persistent FFN-in scheduler also has no target-GPU result.
+- **Exact-attention and fusion research.** FlashInfer SM120, Transformer Engine
+  LayerNorm-linear/MLP fusion, cuBLASLt/CUTLASS epilogues, no-concat QKV, causal
+  load balancing, and a dedicated `head_dim=8` kernel remain unshipped because
+  none has completed the exact-workload correctness and end-to-end timing gate.
+  Sparse, linear, low-rank, decode/KV-cache, and distributed attention target
+  different semantics or workloads and are not substitutes for this task.
 
 These results reinforced one rule: a faster microkernel, a lower precision, or
 fewer launches is only useful when the complete model still passes correctness
@@ -367,9 +492,12 @@ and wins under the same end-to-end protocol.
 
 Perry demonstrates a reusable GPU-engineering workflow: establish a trusted
 oracle, profile the workload, specialize with evidence, retain fallbacks, and
-publish negative results. Shape #14 shows that rescheduling tensor lifetimes can
-make valid mathematics executable. The standalone artifact preserves PyTorch
-parameter names, strict `state_dict` loading, and the original forward contract.
+publish negative results. The project optimizes computation, layout, precision,
+compiler scope, and tensor lifetime as one system rather than treating kernel
+speed as the only metric. Shape #14 is the clearest example: the mathematical
+operation was valid, but only a different execution schedule made it physically
+executable. The standalone artifact still preserves PyTorch parameter names,
+strict `state_dict` loading, and the original forward contract.
 
 ## Limitations
 
@@ -388,50 +516,36 @@ would keep the same strict comparator and public interface, and would need an
 end-to-end win after layout, quantization, compilation, and memory costs—not
 just a faster isolated kernel.
 
-1. **Attack exact long-sequence attention first.** Attention already consumes
-   `92.258%` of shape #14's compiled-executor device time. The first unmeasured
-   candidate should be FlashInfer's SM120 prefill FMHA, tested on shape #13 and
-   then the `B=1` shape-#14 body with every adapter and layout conversion inside
-   the timed region. PyTorch Flash remains the control: cuDNN, the
-   memory-efficient backend, and FlashAttention-4 have already lost this exact
-   comparison. Only if available libraries hit a ceiling would we build a
-   custom exact SM120 kernel using online softmax and causal triangular
-   load-balancing for `S=100000`.
-2. **Fuse the path into attention and reduce live memory.** Prototype
-   `LayerNorm → QKV projection → backend-native layout` with Transformer Engine
-   `LayerNormLinear` or a CUTLASS epilogue. For shape #14, retain packed weights
-   but avoid a full packed activation: write separate contiguous Q/K/V buffers
-   that FlashInfer or another exact backend can consume directly, reuse a
-   scratch arena, and select the batch chunk from measured headroom. This targets
-   both layout traffic and the 18.311 GiB full-batch packed-QKV pressure.
-3. **Build an accuracy-aware workload router.** Autotune distinct regimes for
-   launch-bound shapes, GEMM-heavy shapes, standard attention, long attention,
-   and extreme-memory execution. A direct-layout QKV route for large `B*S` with
-   `D=FFN=128` is the first candidate because it already showed measured wins on
-   shapes #6 and #13. Routing must use meaningful workload and environment keys,
-   never an official test ID, and a route becomes eligible only after its full
-   accuracy matrix passes without reducing the aggregate score.
-4. **Strengthen the measurement and portability gate.** Expand correctness to
-   multiple seeds, input scales, padding ratios, causal/non-causal execution,
-   every supported head dimension, and a second GPU/software stack. Record the
-   SDPA backend that actually ran, peak allocated and reserved memory, and both
-   compile cold-start and steady-state latency. Compiled artifacts and autotune
-   choices should be cached by GPU, driver, CUDA, PyTorch, dtype, shape, and mask
-   contract rather than assumed portable.
-5. **Explore lower precision only as protected precision islands.** The next
-   quantized-attention experiment would use SageAttention2++-style QK INT8 with
-   smoothing, PV in FP16 with two-level/FP32 accumulation, and FP32 softmax,
-   projection, and residual boundaries. Outlier rows or channels would receive
-   a small FP32 correction. Because earlier Sage variants missed the strict
-   gate, this path starts with accuracy-only canaries on shapes #1, #8, and #13;
-   quantization and smoothing overhead enter timing only after correctness.
-6. **Specialize the remaining proven bottlenecks.** For GEMM-heavy shapes #6
-   and #8, compare exact cuBLASLt GELU epilogues, Transformer Engine
-   `LayerNormMLP`, and CUTLASS SM120 schedules against the current Triton path.
-   For `head_dim=8` and `D=32` shapes, test a small persistent attention/block
-   kernel that avoids wasteful general-purpose tiling. These are later-stage
-   projects: each begins with a fresh profile, isolates one change, and must beat
-   the whole model—not merely a microbenchmark.
+1. **Attack exact long-sequence attention first.** Attention consumes `92.258%`
+   of shape #14's compiled-executor device time. The next library candidate is
+   FlashInfer's SM120 prefill FMHA, measured first on shape #13 and then on the
+   `B=1` shape-#14 body with every adapter and layout conversion included. If
+   available libraries reach a ceiling, the next step is a custom exact SM120
+   online-softmax kernel with causal triangular load balancing—not an
+   approximate attention replacement.
+2. **Fuse the path into attention and reduce its live set.** Prototype
+   `LayerNorm → QKV projection → backend-native layout` using Transformer
+   Engine or a CUTLASS epilogue. For shape #14, avoid a full packed activation by
+   writing separate backend-ready Q/K/V buffers, reusing scratch storage, and
+   choosing the batch chunk from measured memory headroom.
+3. **Build an accuracy-aware workload router.** Autotune launch-bound, GEMM-heavy,
+   standard-attention, long-attention, and extreme-memory regimes. Direct-layout
+   QKV for large `B*S` with `D=FFN=128` is the first evidence-backed route because
+   it already helped shapes #6 and #13. Routing keys must describe workload and
+   environment properties, never an official test ID.
+4. **Raise the validation and portability bar.** Repeat correctness across more
+   seeds, input scales, padding ratios, causal/non-causal inputs, and head
+   dimensions, then repeat timing on another GPU/software stack. Record the
+   backend that actually ran, allocated and reserved memory, compile cold start,
+   and steady-state latency. The measured four-partition shape-#14 scheduler is
+   a promotion candidate only after these repeatability checks justify its extra
+   stream and CUDA-Graph complexity.
+5. **Specialize remaining bottlenecks only after profiling.** For shapes #6 and
+   #8, compare exact cuBLASLt GELU epilogues, Transformer Engine MLP fusion, and
+   CUTLASS SM120 schedules with the current Triton path. For `head_dim=8` or
+   `D=32`, evaluate a small persistent attention/block kernel. Protected
+   INT8/FP8 precision islands with smoothing and FP32 outlier correction remain
+   later accuracy-first experiments because earlier quantized paths failed.
 
 We would not spend additional time on semantics-changing sparse/linear
 attention, decode-oriented kernels, or larger batch chunks without new

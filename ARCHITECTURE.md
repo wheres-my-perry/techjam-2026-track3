@@ -14,10 +14,10 @@ Public repository: [wheres-my-perry/techjam-2026-track3](https://github.com/wher
 | `torch_transformer_benchmark.py` | Reference implementation và benchmark harness gốc. |
 | `main.py` | Benchmark entrypoint trỏ tới standalone `v16_1_clean.py`. |
 | `v16_1_clean.py` | Active V16.1: model/config/kernel/cache/executor đầy đủ, không import harness hoặc version cũ. |
-| `v19_CUDAFP16Checkpoint.py` | Experimental V19 trên V16.1: CUDA WMMA FFN-in/GELU accumulate FP16 và checkpoint FP32 theo K; GPU gate pending. |
+| `v19_CUDAFP16Checkpoint.py` | Experimental V19 trên V16.1: CUDA WMMA FFN-in/GELU accumulate FP16 và checkpoint FP32 theo K; GPU strict PASS nhưng performance regress, không promote. |
 | `v19_parallel_batch_common.py` | Scheduler chung chia large batch thành các range cân bằng và enqueue lên nhiều CUDA stream, không đổi arithmetic/state dict. |
-| `v19_1_0_ParallelBatchV161.py` | Experimental V19.1.0: V16.1 + parallel batch scheduler cho large-sequence path. |
-| `v19_1_1_ParallelBatchV19.py` | Experimental V19.1.1: V19 CUDA arithmetic + cùng parallel batch scheduler. |
+| `v19_1_0_ParallelBatchV161.py` | Experimental V19.1.0: V16.1 + parallel batch scheduler; GPU tune shape #14 chọn P4 làm measured winner. |
+| `v19_1_1_ParallelBatchV19.py` | Experimental V19.1.1: V19 CUDA arithmetic + cùng scheduler; GPU tune chọn K64/P2 nhưng chậm hơn V19.1.0. |
 | `archive/versions/` | Toàn bộ implementation `v1`–`v18` lịch sử, giữ làm evidence/rollback nhưng không còn là runner target. |
 | `v1_fuseQKV.py` | V1: gộp Q/K/V projection thành một phép `F.linear`. |
 | `v2_SPDA.py` | V2: V1 + PyTorch SDPA. |
@@ -616,9 +616,9 @@ như precision boundary V16.1. Cùng source có controls `K=16/64/128` và `fp32
 
 Extension được build khi model chuyển sang CUDA, trước outer `torch.compile`.
 CUDA build failure là hard error mặc định để runner không silent fallback rồi
-gắn timing V16.1 cho V19. Candidate chỉ có local CPU structural/opcheck và
-one-trial accuracy smoke; chưa compile/chạy CUDA, chưa benchmark và không được
-promote qua `main.py` cho tới khi strict GPU matrix PASS.
+gắn timing V16.1 cho V19. GPU gate sau đó PASS correctness #1–#14 nhưng K64
+regress optimized latency geomean `13.73%` so V16.1 trên #1–#13, nên không
+promote qua `main.py`.
 
 ### 10.27 V19.1 parallel batch partitions
 
@@ -637,9 +637,10 @@ Parts=1, CPU, training, non-FP32, short sequence và B=1 gọi nguyên parent pa
 Với parts>1, inner Inductor executor bắt buộc dùng
 `max-autotune-no-cudagraphs` để tránh concurrent replay dùng chung static CUDA
 Graph buffers. Stream cache không persistent, không vào `state_dict`, và được
-xóa cùng compiled-executor cache sau load/move hoặc đổi mode. Candidate chưa có
-CUDA correctness, peak-memory hoặc latency evidence; số stream chỉ được tăng
-sau từng memory gate trên GPU idle.
+xóa cùng compiled-executor cache sau load/move hoặc đổi mode. Memory-bounded
+accuracy chia 32 samples thành group bằng số parts để exercise outer scheduler
+mà không giữ full B32 candidate output khi dựng reference. GPU sweep chọn
+V19.1.0 P4: full #14 strict PASS và median `6780.3867 ms`; `main.py` chưa đổi.
 
 ## 11. Điểm mở rộng
 

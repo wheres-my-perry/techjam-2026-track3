@@ -46,9 +46,9 @@ Hiện repository có chuỗi implementation phiên bản hóa cùng execution c
 | `v17_CompiledBatch2.py` | V16 + compiled executor B=2 cho #14 | Experimental; full strict PASS, gain chỉ `0.30–0.59%`, không promote |
 | `v17_sage.py` | V16.1 + corrected SageAttention cross-shape | Negative ablation; full #1–#13 fail strict ở #6/#9 |
 | `v18_sage.py` | V16.1 + direct automatic SageAttention SM120 | Performance-only diagnostic; không correction, không đổi main |
-| `v19_CUDAFP16Checkpoint.py` | V16.1 + CUDA WMMA FP16 accumulate, checkpoint partial sum sang FP32 theo K | Experimental; local smoke PASS, CUDA accuracy/performance pending |
-| `v19_1_0_ParallelBatchV161.py` | V16.1 + multi-stream parallel partitions cho large batch | Experimental; local gates PASS, CUDA #14 pending |
-| `v19_1_1_ParallelBatchV19.py` | V19 arithmetic + cùng multi-stream batch scheduler | Experimental; local gates PASS, CUDA #14 pending |
+| `v19_CUDAFP16Checkpoint.py` | V16.1 + CUDA WMMA FP16 accumulate, checkpoint partial sum sang FP32 theo K | GPU PASS correctness nhưng regress; không promote |
+| `v19_1_0_ParallelBatchV161.py` | V16.1 + multi-stream parallel partitions cho large batch | P4 measured winner #14; full strict PASS, chưa đổi main |
+| `v19_1_1_ParallelBatchV19.py` | V19 arithmetic + cùng multi-stream batch scheduler | K64/P2 PASS nhưng chậm hơn V19.1.0 P4 |
 | `shape14_accuracy.py` | Query-blocked reference + streaming strict comparator | Accuracy-only harness cho #14; không dùng để claim baseline latency |
 | `shape14_optimized_benchmark.py` | CUDA Event optimized-only diagnostic | Tái lập latency #14 khi original baseline cần score ~18.6 TiB |
 | `v4_1_clean.py` | Standalone V4.1 config/model, không benchmark dependency | Import/presentation artifact; graph-equivalent local validation PASS |
@@ -912,9 +912,15 @@ mask/no-mask, training/BF16/unsupported-shape fallback, custom-op `opcheck` và
 `torch.compile(backend="eager")`. Official shape #2 một-trial portable smoke
 PASS cả K=16/32/64/128 và FP32 control; default K=32 có max abs `0.00108075`,
 failed `0/16,384`. Portable CPU simulation không tái tạo chính xác tensor-core
-FP16 accumulation, nên kết quả này chỉ là structural gate. V19 chưa được
-compile/chạy trên CUDA và chưa có performance result; strict GPU canaries,
-#1–#13, #14 và paired V16.1/V19 vẫn pending.
+FP16 accumulation, nên kết quả này chỉ là structural gate.
+
+GPU RTX 5090/driver 595 đã đóng gate. NVCC cần literal FP16 đúng type trong
+`wmma::fill_fragment`; sau fix, extension build/chạy thật và mọi K strict PASS
+canaries. K64 là FP16 mode nhanh nhất trên #6 (`29.7675 ms`) nhưng V16.1 controls
+chỉ `25.1593/25.2380 ms`. Full K64 #1–#13 PASS 13/13, worst max abs
+`0.00181192`, geomean speedup `10.3079x` so với V16.1 cùng host `11.8030x`.
+Full #14 PASS `0/3.2768B`, nhưng two-order medians `7251.4170/7310.5811 ms`.
+V19 vì vậy bị reject cho promotion.
 
 ### 6.31 V19.1 — Parallel batch partitions
 
@@ -932,11 +938,17 @@ của input/mask/output. Parts=1 và mọi branch không eligible gọi nguyên 
 Concurrent calls không dùng CUDA Graph: parts>1 ép inner executor sang
 `max-autotune-no-cudagraphs`, vì replay đồng thời một graph/static buffer cache
 có thể race. Stream cache không persistent và public state dict không đổi.
-Local planner/state/fallback gates cùng official #2 one-trial smoke PASS;
-V19.1.0 max abs `0.00084424`, V19.1.1 `0.00108075`, cả hai failed
-`0/16,384`. Đây không test CUDA overlap vì #2 không vào large-sequence path.
-CUDA full-#14 correctness, peak memory và latency vẫn pending; `main.py` chưa
-đổi.
+Local planner/state/fallback gates cùng official #2 one-trial smoke PASS. GPU
+sweep P2/P4/P8 đều exercise multi-stream path và strict PASS canaries; P16
+không chạy vì P8 đã regress và resident memory khoảng `29.6 GiB`.
+
+V19.1.0 chọn P4: full #14 strict PASS `0/3,276,800,000`, max abs
+`0.000944138`; post-gate median `6780.3867 ms`, p90 `6792.4046 ms`, throughput
+`471,949.48 token/s`, peak `25.676 GiB`. Hai control sandwiches đo gain
+`1.51–1.66%` so với V16.1 P1 cùng no-CUDA-Graph policy. V19.1.1 K64/P2 cũng
+full PASS nhưng two-order average `7179.4322 ms`, chậm hơn V19.1.0. `main.py`
+chưa đổi; raw evidence nằm trong
+`results/v19-tune-rtx5090-driver595-20260901/`.
 
 ## 7. Correctness validation
 
@@ -967,8 +979,8 @@ Môi trường local: PyTorch `2.12.1`, CPU.
 | V14 | FP32 public, exact #14 dispatch | Bật | All-valid | PASS GPU `0/3.2768B` |
 | V17-Sage | FP32 public, corrected Sage | Bật | Có | GPU #1–#13 **FAIL** #6/#9; rejected |
 | V18-Sage | FP32 public, dependency-missing CPU fallback | Bật | Có | Local fallback bitwise PASS; direct Sage GPU pending |
-| V19 CUDA checkpoint | FP32 public / FP16 internal, K=16/32/64/128/fp32 | Tắt/bật | Không/có | Local structural/one-trial #2 PASS; CUDA gate pending |
-| V19.1.0/V19.1.1 | FP32 public, parallel outer batch scheduler | Bật | Không/có | Local parent-equivalence/#2 PASS; CUDA #14 scheduler gate pending |
+| V19 CUDA checkpoint | FP32 public / FP16 internal, K=16/32/64/128/fp32 | Tắt/bật | Không/có | GPU #1–#14 PASS; performance regress, rejected |
+| V19.1.0/V19.1.1 | FP32 public, parallel outer batch scheduler | Bật | Không/có | GPU full #14 PASS; V19.1.0 P4 measured winner |
 | V14.1 | FP32 public, `S >= 8192` dispatch | Bật | Không/có | Local branch equivalence PASS; #14 dùng cùng validated arithmetic |
 | V15 | FP32 public, exact #13 direct QKV | Bật/tắt fallback | Không/có | Local/CUDA branch gates PASS; non-target path kế thừa V14.1 |
 | V15.1 | FP32 public, causal `S<8192` direct QKV | Bật/tắt fallback | Không/có | Local gates và GPU official #1–#12 PASS; ablation, không phải main |

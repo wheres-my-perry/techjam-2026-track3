@@ -1333,7 +1333,7 @@ v16_1_clean.py`, không kế thừa số V4.3/V16 lịch sử.
 
 ## D-044 — Giữ V19 CUDA checkpointed-FP16 ngoài main cho tới GPU gate
 
-**Trạng thái:** Accepted for experimentation; V16.1 remains main
+**Trạng thái:** Rejected for promotion after GPU gate; V16.1 remains main
 **Ngày:** 2026-08-31
 
 ### Bối cảnh
@@ -1362,19 +1362,23 @@ policy thay vì lặp lại global flag.
   `opcheck` và compile-eager smoke PASS.
 - Official-shape-#2 one-trial portable simulation PASS cho K=16/32/64/128 và
   FP32 control; K=32 max abs `0.00108075`, failed `0/16,384`.
-- Chưa compile hoặc execute CUDA source; chưa có latency/speedup.
+- RTX 5090/driver 595: mọi K strict PASS #7/#10/#2; K64 là FP16 mode nhanh
+  nhất trên #6 nhưng `29.7675 ms` so V16.1 controls `25.1593/25.2380 ms`.
+- K64 full #1–#13 PASS, geomean `10.3079x` so V16.1 `11.8030x`; direct
+  optimized-latency geomean regress `13.73%`. Full #14 PASS nhưng two-order
+  medians `7251.4170/7310.5811 ms`.
 
 ### Hệ quả
 
 - V16.1 tiếp tục là stable artifact. V19 không được gán headline result hoặc
-  gọi là nhanh hơn trước khi có measured GPU evidence.
+  gọi là nhanh hơn; measured GPU evidence đã reject promotion.
 - Sweep sau phải tách accuracy của checkpoint policy khỏi chất lượng schedule
   CUDA bằng FP32 control cùng source; nếu control đã chậm V16.1, tối ưu tiling
   trước khi kết luận accumulation policy không có lợi.
 
 ## D-045 — Giữ V19.1 multi-stream scheduler ngoài main tới khi đóng memory gate
 
-**Trạng thái:** Accepted for experimentation; V16.1 remains main
+**Trạng thái:** GPU tuning complete; V19.1.0 P4 measured winner, main unchanged
 **Ngày:** 2026-08-31
 
 ### Bối cảnh
@@ -1392,9 +1396,9 @@ với static buffers.
   worker stream xử lý tuần tự các sample B=1 trong range.
 - Parts>1 bắt buộc inner Inductor mode `max-autotune-no-cudagraphs`. Stream cache
   là runtime-only và bị xóa cùng executor cache sau load/move/config change.
-- `shape14_accuracy.py` phải gọi full candidate batch khi parts>1 và B>1 để
-  correctness gate thực sự đi qua outer scheduler, thay vì bypass bằng sample
-  helper.
+- `shape14_accuracy.py` gọi candidate theo group bằng số parts khi B>1 để
+  correctness gate đi qua outer scheduler nhưng không giữ full B32 output trong
+  lúc dựng memory-bounded reference.
 - Không đổi `main.py`. Tăng parts tuần tự trên GPU idle và dừng tại OOM/memory
   headroom không an toàn; latency chỉ hợp lệ sau full strict #14 PASS.
 
@@ -1404,7 +1408,14 @@ với static buffers.
   CPU parent-equivalence mask/no-mask, training, BF16 đều PASS.
 - Official #2 one-trial smoke: V19.1.0 max abs `0.00084424`, V19.1.1 K=32
   portable max abs `0.00108075`, cả hai failed `0/16,384`.
-- Chưa execute multi-stream path trên CUDA; CPU timing bị loại.
+- RTX 5090 P2/P4/P8 canaries execute multi-stream path thật và strict PASS.
+  P8 regress, resident memory khoảng `29.6 GiB`; P16 không chạy.
+- V19.1.0 P4 full #14 PASS `0/3.2768B`, max abs `0.000944138`; post-gate
+  median `6780.3867 ms`, p90 `6792.4046 ms`, peak `25.676 GiB`. P4 thắng P1
+  controls `1.51–1.66%`.
+- V19.1.1 K64/P2 full PASS nhưng two-order average `7179.4322 ms`; V19.1.0
+  P4 là overall winner. Raw evidence ở
+  `results/v19-tune-rtx5090-driver595-20260901/`.
 
 ### Hệ quả
 
@@ -1412,6 +1423,8 @@ với static buffers.
   no-CUDA-Graph policy, seed, warmup/repeats và GPU idle.
 - Mỗi latency row phải kèm parts và peak allocation; theoretical overlap không
   được ghi thành speedup đã đo.
+- Không tự động đổi `main.py`: promotion là quyết định riêng của owner sau khi
+  cân nhắc gain #14 nhỏ và headroom của P4.
 
 ## D-046 — Promote driver-595 timeline sweep; giữ driver-580 làm cross-host archive
 

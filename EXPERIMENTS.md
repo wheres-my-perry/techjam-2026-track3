@@ -2592,9 +2592,8 @@ Checked-in evidence: `results/final/`.
 
 ## 27. S8.14 — V19 CUDA FP16 accumulation với checkpoint FP32 theo K
 
-**Trạng thái:** Implemented và local structural/accuracy smoke PASS; CUDA
-compile/execution, full accuracy và performance pending vì GPU mục tiêu đang có
-job. Không thay `main.py` và chưa có performance claim.
+**Trạng thái:** GPU sweep complete; correctness PASS nhưng performance regress,
+không promote. `main.py` vẫn V16.1.
 
 **Giả thuyết:** FFN-in/GELU của V16.1 hiện dùng custom Triton GEMM với
 accumulator FP32. Full FP16 accumulation từng fail accuracy ở V5.1 và không cho
@@ -2655,10 +2654,32 @@ CPU latency bị loại. Portable path chỉ round partial GEMM output theo grou
 nó không mô phỏng chính xác vi kiến trúc WMMA FP16 accumulator, nên các PASS
 trên không thay CUDA accuracy gate.
 
+**GPU result 2026-09-01:** Vast.ai RTX 5090 SM120, driver `595.71.05`, Python
+`3.12.14`, PyTorch `2.11.0+cu128`, CUDA wheel `12.8`, cuDNN `9.19.0`, Triton
+`3.6.0`; seed `1234`, FP32 public, TF32 bật. NVCC 12.8 bắt được một type mismatch
+ở `wmma::fill_fragment` cho FP16 accumulator; literal zero đã đổi thành
+`__float2half(0.0f)`, sau đó extension build/chạy thật, không fallback.
+
+Mọi K=16/32/64/128/fp32 strict PASS năm trials trên #7/#10/#2. Shape #6
+max-autotune `10/30/3`: V16.1 controls `25.1593/25.2380 ms`; K16/K32/K64/K128
+lần lượt `29.7888/29.8112/29.7675/29.8196 ms`; FP32 control `29.5313 ms`.
+K64 là FP16 mode nhanh nhất nhưng regress khoảng `18.13%` so V16.1.
+
+K64 full #1–#13, command `matrix_runner.py --impl v19 --shape-ids 1,...,13
+--accuracy-trials 5 --warmup 20 --repeats 100 --benchmark-rounds 3
+--compile-user --compile-mode max-autotune`: strict PASS 13/13, worst max abs
+`0.00181192`, geomean speedup `10.3079x`. V16.1 start control cùng host là
+`11.8030x`; direct optimized-latency geomean của V19 regress `13.73%`.
+
+Full #14 K64 PASS `0/3,276,800,000`, max abs `0.000997305`; two-order
+optimized-only medians `7251.4170/7310.5811 ms`. V19 bị reject cho promotion.
+Raw evidence và command-level report:
+`results/v19-tune-rtx5090-driver595-20260901/`.
+
 ## 28. S8.15 — V19.1 parallel batch partitions
 
-**Trạng thái:** Implemented; local structural/parent-equivalence/accuracy smoke
-PASS. CUDA memory/accuracy/performance pending vì GPU mục tiêu đang có job.
+**Trạng thái:** GPU tuning complete. V19.1.0 P4 là measured winner cho shape
+#14; không tự động promote `main.py` vì owner chỉ yêu cầu tune/report.
 
 **Evidence và giả thuyết:** V16.1 shape #14 giữ loop batch ngoài eager và chạy
 32 sample B=1 tuần tự. V17 từng đổi executor thành B=2 nhưng chỉ giảm khoảng
@@ -2700,8 +2721,10 @@ CPU timing làm performance evidence.
 `v19_parallel_batch_common.py`; hai entrypoint là
 `v19_1_0_ParallelBatchV161.py` và `v19_1_1_ParallelBatchV19.py`. Aliases
 `v19.1.0`/`v19_1_0` và `v19.1.1`/`v19_1_1` đã nối vào matrix và ba tool #14.
-`shape14_accuracy.py` gọi full candidate batch khi parts>1 và batch-limit>1,
-thay vì bypass outer scheduler bằng B=1 sample helper.
+`shape14_accuracy.py` gọi candidate theo group `min(parts, batch-limit)` khi
+parts>1 và B>1, thay vì bypass outer scheduler bằng B=1 sample helper. Grouping
+exercise đủ worker streams nhưng không giữ full B32 output trong lúc dựng
+memory-bounded reference.
 
 Local macOS/CPU PyTorch `2.12.1`: `py_compile` PASS; planner cover chính xác
 B=1/2/3/7/32/33 cho mọi parts, không range rỗng và độ lệch width tối đa 1.
@@ -2717,6 +2740,25 @@ parent bitwise cho cả hai candidate. Official #2 one-trial smoke PASS:
 
 CPU timing bị loại: shape #2 có B=1/S=128 nên không đi vào parallel
 large-sequence path, và CPU không thể validate CUDA stream overlap.
+
+**GPU result 2026-09-01:** Cùng RTX 5090/driver/PyTorch environment của S8.14.
+P2/P4/P8 multi-stream canaries strict PASS; P8 full-output timing regress và
+resident memory lên khoảng `29.6 GiB`, nên không thử P16. V19.1.0 sweep hai
+orders cho P2 trung bình `6820.9448 ms`, P4 `6810.4595 ms`; chênh `0.15%` nhưng
+P4 ổn định hơn và là số nhanh nhất đo được. Post-gate P4 final:
+
+- Full #14 strict PASS `0/3,276,800,000`, max abs `0.000944138`, mean abs
+  `6.56367e-05`, accuracy peak `21.147 GiB`.
+- Optimized-only warmup/repeats `1/5`: median `6780.3867 ms`, p90
+  `6792.4046 ms`, throughput `471,949.48 token/s`, peak `25.676 GiB`.
+- Hai P1 control sandwiches cho thấy P4 nhanh hơn V16.1 parent khoảng
+  `1.51–1.66%` trên cùng `max-autotune-no-cudagraphs`.
+
+V19.1.1 K64 chọn P2: full #14 PASS `0/3,276,800,000`, max abs `0.000997305`;
+two-order medians `7173.3130/7185.5513 ms`. V19.1.0 P4 nhanh hơn V19 K64 P1
+khoảng `6.88%` và nhanh hơn V19.1.1 K64/P2 khoảng `5.56%`. `main.py` chưa đổi.
+Chi tiết từng run nằm trong
+`results/v19-tune-rtx5090-driver595-20260901/REPORT.md`.
 
 ## 29. S8.16 — Full checkpoint timeline trên RTX 5090 driver 595
 
