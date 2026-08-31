@@ -256,7 +256,14 @@ không executable trên 32 GiB.
 - [~] Đã tạo `docs/DEVPOST.md` submission-ready; còn điền team contributions và
   public YouTube URL từ owner.
 - [ ] Quay demo video public trên YouTube.
-- [ ] Kiểm tra licensing/trademark/copyright.
+- [x] Freeze V16.1 bằng tag `techjam-2026-final-v16.1`,
+  `submission-manifest.json`, source/evidence SHA-256 và `SUBMISSION.md`.
+- [x] Thêm standard-library submission preflight, CUDA environment/correctness
+  preflight, CPU GitHub Actions CI và test cho release manifest.
+- [x] Thêm MIT `LICENSE` cho phần project-authored và `NOTICE.md` tách rõ
+  organizer material, optional dependencies, trademark và media scope.
+- [~] Clean-clone CPU gate được tự động hóa; cần xác nhận workflow public PASS
+  sau khi push tag. Clean-clone target-GPU rerun vẫn pending.
 
 **Exit criteria:** một reviewer mới có thể clone, chạy accuracy/benchmark và tái lập bảng kết quả.
 
@@ -267,13 +274,14 @@ không executable trên 32 GiB.
 1. Review Devpost description từ final driver-595 table trong `results/final/`,
    nêu rõ geomean #1–#13, cross-host caveat và tách #14 optimized-only khỏi
    paired speedup.
-2. Chốt dependency installation manifest cho Python `3.12`, PyTorch
-   `2.11.0+cu128` và Triton `3.6.0`; kiểm tra clone-clean reproduction.
+2. Push tag `techjam-2026-final-v16.1`, xác nhận CPU CI public PASS và chạy
+   target-GPU preflight/clean-clone reproduction từ chính tag đó.
 3. Bổ sung team-member contributions, development tools/API disclosure và link
    public demo video — đây là dữ liệu owner-specific không thể suy từ benchmark.
 4. Quay demo: clone/import standalone artifact, chạy một short-shape strict
    gate, trình bày final matrix và walkthrough shape-#14 memory-bounded path.
-5. Kiểm tra license, trademark và copyrighted assets trước khi public video.
+5. Trước khi public video, ghi lại permission cho mọi music/logo/media mới;
+   repository code/organizer/dependency scope đã được tách trong `NOTICE.md`.
 
 ### Post-submission optimization roadmap
 

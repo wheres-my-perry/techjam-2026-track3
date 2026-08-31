@@ -487,17 +487,49 @@ and wins under the same end-to-end protocol.
   seed.
 - **Assets:** the organizer-provided PyTorch benchmark, the 14 published test
   shapes, and public technical documentation.
+- **Licensing:** project-authored work is MIT-licensed. The organizer benchmark,
+  problem-statement restatement, optional dependencies, trademarks, and future
+  demo media are scoped separately in `NOTICE.md`.
 
 ## Impact and relevance
 
-Perry demonstrates a reusable GPU-engineering workflow: establish a trusted
-oracle, profile the workload, specialize with evidence, retain fallbacks, and
-publish negative results. The project optimizes computation, layout, precision,
-compiler scope, and tensor lifetime as one system rather than treating kernel
-speed as the only metric. Shape #14 is the clearest example: the mathematical
-operation was valid, but only a different execution schedule made it physically
-executable. The standalone artifact still preserves PyTorch parameter names,
-strict `state_dict` loading, and the original forward contract.
+### Who this helps
+
+Perry is intended for GPU inference and ML-systems engineers who must run dense
+Transformer encoder-style layers on memory-constrained NVIDIA GPUs. Similar
+layers are used in recommendation, retrieval and reranking, vision, speech, and
+NLP encoders. The demonstrated evidence in this submission is deliberately
+narrower: it covers the organizer's 14 layer configurations, not an end-to-end
+production model.
+
+### Practical value demonstrated
+
+- On official shapes #1-#13, Perry achieved an `11.803x` same-host geometric-
+  mean speedup while every strict correctness comparison passed.
+- On shape #14, rescheduling attention made a valid workload executable within
+  a 32 GiB GPU: the full official batch passed all `3,276,800,000` comparisons,
+  used `24.487 GiB` peak memory, and processed `457,962.98` tokens/s. The
+  reference path would require roughly `18.6 TiB` for explicit attention scores.
+- The implementation preserves the original `forward(x, valid_token_mask)`
+  contract, output shape, PyTorch parameter names, and strict `state_dict`
+  loading. For a compatible layer, adoption is a module substitution and weight
+  load rather than a model conversion or service rewrite.
+- Training and unsupported inference cases retain safe PyTorch fallbacks, which
+  reduces the risk of evaluating the optimized path in an existing codebase.
+
+The project also contributes a reusable engineering method: establish a trusted
+oracle, profile the real workload, specialize with evidence, keep fallbacks, and
+publish negative results. It treats computation, layout, precision, compiler
+scope, and tensor lifetime as one system instead of treating kernel speed as the
+only metric.
+
+### Boundary of the impact claim
+
+The submission does not yet claim an end-to-end application speedup, production
+adoption, cost reduction, or energy reduction; those outcomes were not measured.
+The supported claim is that Perry delivers validated layer-level latency and
+memory-capacity gains on the official benchmark and provides a low-friction path
+for engineers to test those gains in a compatible inference stack.
 
 ## Limitations
 

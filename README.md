@@ -16,6 +16,31 @@ relative_error < 0.02 OR absolute_error < 0.002
 
 Both comparisons are strict and correctness is checked before performance.
 
+The frozen submission is identified by tag `techjam-2026-final-v16.1` and the
+machine-checked source hashes in [`SUBMISSION.md`](SUBMISSION.md). Start there
+for the shortest clean-clone verification path.
+
+### Who this helps and why it matters
+
+Perry is intended for GPU inference and ML-systems engineers evaluating dense
+Transformer encoder-style layers on memory-constrained NVIDIA GPUs. The direct
+value is both lower latency and greater workload capacity: official shapes
+#1-#13 achieved an `11.803x` same-host geometric-mean speedup with zero strict
+correctness failures, while shape #14 became executable within a 32 GiB GPU at
+`24.487 GiB` peak memory and `457,962.98` tokens/s.
+
+Adoption is intentionally low-friction for a benchmark-compatible layer. The
+optimized module keeps the same `forward(x, valid_token_mask)` API, output shape,
+parameter names, and strict `state_dict` loading, and it retains safe fallbacks
+outside the specialized inference path. See [Standalone use](#standalone-use)
+for the integration example.
+
+The evidence boundary is important: these are validated layer-level results on
+the 14 official configurations, not a measured end-to-end production model,
+cost, or energy result. Recommendation, retrieval/reranking, vision, speech, and
+NLP encoders are intended evaluation targets for future integration work rather
+than claimed deployments.
+
 ### Active implementation
 
 The final submission uses one active implementation:
@@ -108,6 +133,7 @@ cases PyTorch addresses the one visible GPU as `cuda:0`.
 ### 1. Run the preflight checks
 
 ```bash
+python3 tools/submission_preflight.py
 python3 -m py_compile main.py tools/matrix_runner.py tools/profile_models.py \
   torch_transformer_benchmark.py v16_1_clean.py tools/shape14/accuracy.py \
   tools/shape14/optimized_benchmark.py tools/shape14/profile.py \
@@ -117,6 +143,14 @@ python3 -m tools.matrix_runner --list-shapes
 python3 -m tools.profile_models --list-shapes
 python3 -m tools.timeline_runner --list-checkpoints
 python3 -m tools.shape14.timeline_runner --list-checkpoints
+```
+
+On the target GPU, verify the exact final stack and run a strict CUDA
+correctness smoke before a long benchmark:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python3 tools/gpu_preflight.py \
+  --device cuda:0 --strict-final-environment --require-idle
 ```
 
 ### 2. Run a short official-shape smoke test
@@ -256,6 +290,8 @@ CUDA Event benchmark. See [`results/final/`](results/final/README.md).
 
 | Path | Role |
 |---|---|
+| `SUBMISSION.md` | Frozen release identity and clean-clone verification path |
+| `submission-manifest.json` | Machine-readable hashes and evidence expectations |
 | `v16_1_clean.py` | Only active optimized implementation |
 | `main.py` | Official single-shape benchmark adapter |
 | `torch_transformer_benchmark.py` | Baseline/reference oracle |
@@ -266,6 +302,8 @@ CUDA Event benchmark. See [`results/final/`](results/final/README.md).
 | `tools/timeline_adapter.py` | Archived-checkpoint registry, injection and preflight |
 | `tools/timeline_runner.py` | Full #1–#13 checkpoint sweep and drift controls |
 | `tools/shape14/timeline_runner.py` | Isolated Baseline/V16.1 shape-#14 stages |
+| `tools/submission_preflight.py` | Standard-library source/evidence lock verifier |
+| `tools/gpu_preflight.py` | CUDA environment, idle-state and correctness preflight |
 | `docs/benchmark-timeline/REPORT.md` | Complete driver-595 benchmark execution report |
 | `docs/research/attention-optimization.md` | Evidence-ranked attention follow-up catalogue |
 | `docs/DEVPOST.md` | Submission-ready project narrative and team contribution record |
@@ -282,6 +320,7 @@ CUDA Event benchmark. See [`results/final/`](results/final/README.md).
 | `SOLUTION.md` | Full technical report |
 | `DECISION.md` | Long-term technical decisions |
 | `IMPLEMENTATION_PLAN.md` | Current phase and remaining work |
+| `LICENSE` / `NOTICE.md` | Project license and third-party scope |
 
 ## Reflection: limitations and future improvements
 
@@ -326,6 +365,10 @@ the detailed reflection is in [`SOLUTION.md`](SOLUTION.md).
 
 A Devpost-ready project description is available in
 [`docs/DEVPOST.md`](docs/DEVPOST.md). The public demo-video URL is still pending there.
+
+Project-authored work is available under the MIT License. The organizer
+benchmark, problem-statement restatement, optional dependencies, trademarks,
+and future media are scoped in [`NOTICE.md`](NOTICE.md).
 
 Performance results are valid only when baseline and optimized runs use the
 same GPU, dtype, official shape, seed, warmup, repeats, compile configuration

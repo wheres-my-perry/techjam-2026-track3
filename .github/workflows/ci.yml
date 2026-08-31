@@ -1,0 +1,56 @@
+name: CPU validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cpu-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  submission-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Verify frozen source and evidence
+        run: python3 tools/submission_preflight.py
+
+      - name: Install CPU PyTorch
+        run: >-
+          python3 -m pip install
+          torch==2.11.0
+          --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Compile active code and verification tools
+        run: |
+          python3 -m py_compile \
+            main.py \
+            torch_transformer_benchmark.py \
+            v16_1_clean.py \
+            tools/matrix_runner.py \
+            tools/profile_models.py \
+            tools/submission_preflight.py \
+            tools/gpu_preflight.py
+
+      - name: Verify official shape registries
+        run: |
+          python3 -m tools.matrix_runner --list-shapes
+          python3 -m tools.profile_models --list-shapes
+
+      - name: Run CPU regression tests
+        run: python3 -m unittest discover -s tests -v

@@ -2186,7 +2186,42 @@ Whole-model `torch.compile(mode="reduce-overhead")` là execution configuration 
 - Mỗi thay đổi được kiểm tra syntax và accuracy trước khi benchmark hiệu năng.
 - Baseline và optimized luôn nhận cùng weights và cùng input trong một process.
 
-## 12. Giới hạn hiện tại
+## 12. Tác động, đối tượng sử dụng và đường tích hợp
+
+### 12.1. Đối tượng sử dụng trực tiếp
+
+Perry hướng đến kỹ sư GPU inference và ML systems cần chạy các Transformer layer
+kiểu encoder dày đặc trên NVIDIA GPU bị giới hạn bộ nhớ. Các layer tương tự xuất
+hiện trong recommendation, retrieval/reranking, vision, speech và NLP encoder.
+Tuy nhiên, bằng chứng của repository này chỉ bao phủ 14 cấu hình layer chính thức
+của ban tổ chức; repository chưa đo một production model end-to-end.
+
+### 12.2. Giá trị thực tế đã được đo
+
+- Shape #1-#13 đạt geometric-mean speedup `11.803x` trong phép đo cùng host và
+  toàn bộ strict correctness đều PASS.
+- Shape #14 cho thấy lợi ích về capacity, không chỉ latency: full batch chính
+  thức chạy được trong GPU 32 GiB, dùng peak memory `24.487 GiB`, đạt
+  `457,962.98 tokens/s`, và PASS toàn bộ `3,276,800,000` phần tử. Baseline tạo
+  attention score tường minh cần khoảng `18.6 TiB`, nên không thể chạy hợp lệ
+  trên host đó.
+- Artifact giữ nguyên `forward(x, valid_token_mask)`, output shape, tên parameter
+  và strict `state_dict` loading. Với layer tương thích benchmark, đường tích hợp
+  là thay module và nạp weight hiện có, không cần chuyển đổi model format hay
+  dựng một serving API mới.
+- Training và các trường hợp inference ngoài fast path vẫn dùng fallback PyTorch,
+  giúp việc thử nghiệm trong codebase hiện có ít rủi ro hơn.
+
+### 12.3. Phạm vi tuyên bố tác động
+
+Repository chưa chứng minh end-to-end application speedup, production adoption,
+chi phí thấp hơn hoặc mức tiêu thụ năng lượng thấp hơn vì chưa có phép đo tương
+ứng. Tuyên bố được dữ liệu hỗ trợ là hẹp hơn: Perry tạo ra cải thiện latency và
+memory capacity ở cấp layer trên benchmark chính thức, đồng thời cung cấp một
+đường tích hợp tương thích để kỹ sư kiểm tra lợi ích đó trong inference stack của
+họ.
+
+## 13. Giới hạn hiện tại
 
 1. V16.1 main bao phủ #1–#14 bằng V14.1/V11 packed-QKV và standalone compiled
    executor. Fresh standalone run đã PASS full #1–#13 và full `B=32` #14;
@@ -2234,7 +2269,7 @@ Whole-model `torch.compile(mode="reduce-overhead")` là execution configuration 
     performance diagnostic; optional dependency chưa thuộc submission. FA4 b28
     cũng chậm hơn PyTorch Flash `7.72%` trên isolated exact attention.
 
-## 13. Hướng phát triển tiếp theo
+## 14. Hướng phát triển tiếp theo
 
 Ưu tiên theo thứ tự:
 
@@ -2272,7 +2307,7 @@ Whole-model `torch.compile(mode="reduce-overhead")` là execution configuration 
    rollback/ablation. Mọi promotion vẫn phải giữ public API/state dict, PASS
    strict comparator và thắng whole-model trong cùng environment/protocol.
 
-## 14. Kết luận
+## 15. Kết luận
 
 Artifact nộp cuối là `main.py → v16_1_clean.py`. Fresh official run trên commit
 `4f77a04` đã PASS strict cả 14 shapes. Promoted driver-595 start-control

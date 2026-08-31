@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "release": {
+    "tag": "techjam-2026-final-v16.1",
+    "active_entrypoint": "main.py",
+    "implementation": "v16_1_clean.py",
+    "measured_source_revision": "4f77a04fd51c3a2ad8b9d8986657915ae3ca94d6",
+    "environment_id": "rtx5090-sm120-driver595.71.05-torch2.11-cu128",
+    "packaging_policy": "The release may add documentation and verification tooling, but the measured implementation and reference hashes must remain unchanged."
+  },
+  "locked_files": [
+    {
+      "path": "main.py",
+      "role": "benchmark entrypoint",
+      "sha256": "4c0807e93109c76584937be1a5f50db4276f34da9575d4270ab0d6cb6f28d672"
+    },
+    {
+      "path": "v16_1_clean.py",
+      "role": "active standalone implementation",
+      "sha256": "522feff97b482e920d3dde542a659473bdc66ae04757205ab4b9b7c2e209025c"
+    },
+    {
+      "path": "torch_transformer_benchmark.py",
+      "role": "reference benchmark and correctness oracle",
+      "sha256": "c072c48f22cb1438fe903c269eac9039c2554e0c247dcdbe147b9fe950af9500"
+    },
+    {
+      "path": "requirements.txt",
+      "role": "final CUDA runtime pins",
+      "sha256": "6ad00bf8de72f3bddfeca24d3e823560ee6216353cc5f63046b9934b418f17d5"
+    },
+    {
+      "path": "results/final/environment.json",
+      "role": "measured environment",
+      "sha256": "eaea6fc3e1a6b4629151c5734bb7eeaef54ad71aaefffd5d9a4e48c512a60613"
+    },
+    {
+      "path": "results/final/main_shapes_1_13.json",
+      "role": "final shapes 1-13 evidence",
+      "sha256": "1518701592e8eebfffbe6e6f0bfebf50cbb68f5d163d177b9828bdc86e16d67c"
+    },
+    {
+      "path": "results/final/main_shape14_summary.json",
+      "role": "final shape 14 evidence",
+      "sha256": "650316ef6f2a4f203b695198bf59453d1d2fb033fc1ff6e0aa0b731d6d7701be"
+    }
+  ],
+  "evidence_expectations": {
+    "shapes_1_13": {
+      "path": "results/final/main_shapes_1_13.json",
+      "status": "PASS",
+      "passed_shapes": 13,
+      "total_shapes": 13,
+      "failed_elements": 0,
+      "measured_speedup_geomean": 11.802998698286368
+    },
+    "shape_14": {
+      "path": "results/final/main_shape14_summary.json",
+      "streamed_status": "PASS",
+      "failed_elements": 0,
+      "total_elements": 3276800000,
+      "native_status": "PASS",
+      "median_ms": 6987.46435546875,
+      "throughput_tokens_per_second": 457962.98016111023,
+      "peak_allocated_gib": 24.487462997436523,
+      "baseline_speedup": null
+    }
+  }
+}
